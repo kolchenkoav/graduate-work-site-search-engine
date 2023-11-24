@@ -4,7 +4,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 
-import searchengine.config.Site;
+import searchengine.config.SiteConfig;
 import searchengine.config.SitesList;
 import searchengine.dto.search.SearchData;
 import searchengine.dto.search.SearchErrorResponse;
@@ -45,18 +45,26 @@ public class SearchServiceImpl implements SearchService {
     @Override
     public Object search(String query, String site, int offset, int limit) {
         Object response;
+        List<SearchData> searchDataList = new ArrayList<>();
+
         if (searching(site)) {
             SearchResponse responseTrue = new SearchResponse();
             responseTrue.setResult(true);
-            responseTrue.setCount(574);
+            responseTrue.setCount(2);
             SearchData searchData = new SearchData(site,
                     "Имя сайта",
                     "/path/to/page/6784",
-                    "Заголовок страницы которую выводим",
+                    "Заголовок страницы, которую выводим",
                     "Фрагмент текста, в котором найдены совпадения, <b>выделенные жирным</b>, в формате HTML",
                     0.93362);
+            searchDataList.add(searchData);
 
-            List<SearchData> searchDataList = new ArrayList<>();
+            searchData = new SearchData(site,
+                    "Тоже имя сайта",
+                    "/path/to/page/777",
+                    "Заголовок страницы, которую выводим ого-го",
+                    "Тоже фрагмент текста, в котором найдены совпадения, <b>выделенные жирным</b>, в формате HTML",
+                    0.6);
             searchDataList.add(searchData);
             responseTrue.setData(searchDataList);
             response = responseTrue;
@@ -71,7 +79,7 @@ public class SearchServiceImpl implements SearchService {
 
     // TODO Получение данных по поисковому запросу
     private boolean searching(String site) {
-        List<Site> sitesList = sites.getSites();
+        List<SiteConfig> sitesList = sites.getSiteConfigs();
         return sitesList.stream().anyMatch(s-> Objects.equals(s.getUrl(), site));
     }
 }
