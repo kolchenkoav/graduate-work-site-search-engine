@@ -6,7 +6,9 @@ import org.hibernate.annotations.OnDeleteAction;
 
 import javax.persistence.*;
 import java.sql.Timestamp;
+import java.util.ArrayList;
 import java.util.Collection;
+import java.util.List;
 import java.util.Objects;
 
 @Getter
@@ -42,11 +44,12 @@ public class SiteE {
     @Column(columnDefinition = "VARCHAR(255)")
     private String name;
 
-    @OneToMany(cascade = CascadeType.MERGE)
-    private Collection<Lemma> lemmaBySiteEId;
+    @OneToMany(mappedBy = "siteId", cascade = CascadeType.MERGE)
+    private List<Lemma> lemmas = new ArrayList<>();
 
-    @OneToMany(cascade = CascadeType.MERGE)
-    private Collection<Page> pageBySiteEId;
+
+    @OneToMany(mappedBy = "siteId", cascade = CascadeType.MERGE)
+    private List<Page> pages = new ArrayList<>();
 
     @Override
     public boolean equals(Object o) {

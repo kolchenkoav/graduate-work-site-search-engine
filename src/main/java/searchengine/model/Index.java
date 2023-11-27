@@ -3,6 +3,7 @@ package searchengine.model;
 import lombok.*;
 
 import javax.persistence.*;
+import java.util.Objects;
 
 @Getter
 @Setter
@@ -17,11 +18,11 @@ public class Index {
     private int indexId;
 
     @NonNull
-    @Column(name = "page_id", nullable = false)
+    @Column(name = "page_id")
     private int pageId;
 
     @NonNull
-    @Column(name = "lemma_id", nullable = false)
+    @Column(name = "lemma_id")
     private int lemmaId;
 
     @NonNull
@@ -29,35 +30,23 @@ public class Index {
     private double rank;
 
     @ManyToOne
-    @JoinColumn(name = "page_id", referencedColumnName = "page_id", nullable = false, insertable = false, updatable = false)
-    private Page pageByPageId;
+    @JoinColumn(name = "page_id", insertable = false, updatable = false)
+    private Page page;
 
     @ManyToOne
-    @JoinColumn(name = "lemma_id", referencedColumnName = "lemma_id", nullable = false, insertable = false, updatable = false)
-    private Lemma lemmaByLemmaId;
+    @JoinColumn(name = "lemma_id", insertable = false, updatable = false)
+    private Lemma lemma;
 
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
-
         Index index = (Index) o;
-
-        if (indexId != index.indexId) return false;
-        if (pageId != index.pageId) return false;
-        if (lemmaId != index.lemmaId) return false;
-        return Double.compare(index.rank, rank) == 0;
+        return indexId == index.indexId && pageId == index.pageId && lemmaId == index.lemmaId && Double.compare(index.rank, rank) == 0;
     }
 
     @Override
     public int hashCode() {
-        int result;
-        long temp;
-        result = indexId;
-        result = 31 * result + pageId;
-        result = 31 * result + lemmaId;
-        temp = Double.doubleToLongBits(rank);
-        result = 31 * result + (int) (temp ^ (temp >>> 32));
-        return result;
+        return Objects.hash(indexId, pageId, lemmaId, rank);
     }
 }

@@ -3,6 +3,9 @@ package searchengine.model;
 import lombok.*;
 
 import javax.persistence.*;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.List;
 import java.util.Objects;
 
 @Getter
@@ -10,6 +13,7 @@ import java.util.Objects;
 @RequiredArgsConstructor
 @NoArgsConstructor
 @Entity
+
 //, indexes = @Index(name = "fn_index", columnList = "path")
 @Table(name = "page", schema = "search_engine")
 public class Page {
@@ -27,25 +31,20 @@ public class Page {
     private String path;
 
     @NonNull
-    @Column(name = "code", nullable = false)
+    @Column(name = "code")
     private int code;
 
     @NonNull
     @Column(columnDefinition = "MEDIUMTEXT")
     private String content;
 
-//    @NonNull
-//    @Column(name = "title", length = 255)
-//    private String title;
-
-//    @OnDelete(action = OnDeleteAction.CASCADE)
-//    @OneToMany(mappedBy = "pageByPageId", cascade = CascadeType.MERGE)
-//    private Collection<> indexTSByPageId;
 
     @ManyToOne
-    @JoinColumn(name = "site_id", nullable = false, insertable = false, updatable = false)
-    private SiteE siteBySiteId;
+    @JoinColumn(name = "site_id", insertable = false, updatable = false)
+    private SiteE siteE;
 
+    @OneToMany(mappedBy = "pageId", cascade = CascadeType.MERGE)
+    private List<Index> indices = new ArrayList<>();
 
     @Override
     public boolean equals(Object o) {
