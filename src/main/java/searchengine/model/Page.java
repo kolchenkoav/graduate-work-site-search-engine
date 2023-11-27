@@ -2,7 +2,6 @@ package searchengine.model;
 
 import lombok.*;
 
-import javax.persistence.Index;
 import javax.persistence.*;
 import java.util.Objects;
 
@@ -44,8 +43,8 @@ public class Page {
 //    private Collection<> indexTSByPageId;
 
     @ManyToOne
-    @JoinColumn(name = "site_id", referencedColumnName = "site_id", nullable = false, insertable = false, updatable = false)
-    private Site siteBySiteId;
+    @JoinColumn(name = "site_id", nullable = false, insertable = false, updatable = false)
+    private SiteE siteBySiteId;
 
 
     @Override

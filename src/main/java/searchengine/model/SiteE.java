@@ -15,7 +15,7 @@ import java.util.Objects;
 @NoArgsConstructor
 @Entity
 @Table(name = "site", schema = "search_engine")
-public class Site {
+public class SiteE {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "site_id", nullable = false)
@@ -42,21 +42,19 @@ public class Site {
     @Column(columnDefinition = "VARCHAR(255)")
     private String name;
 
-    @OnDelete(action = OnDeleteAction.CASCADE)
-    @OneToMany(mappedBy = "siteBySiteId", cascade = CascadeType.MERGE)
-    private Collection<Lemma> lemmaSBySiteId;
+    @OneToMany(cascade = CascadeType.MERGE)
+    private Collection<Lemma> lemmaBySiteEId;
 
-    @OnDelete(action = OnDeleteAction.CASCADE)
-    @OneToMany(mappedBy = "siteBySiteId", cascade = CascadeType.MERGE)
-    private Collection<Page> pageBySiteId;
+    @OneToMany(cascade = CascadeType.MERGE)
+    private Collection<Page> pageBySiteEId;
 
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
-        Site site = (Site) o;
-        return siteId == site.siteId && status == site.status
-                && statusTime.equals(site.statusTime) && url.equals(site.url) && name.equals(site.name);
+        SiteE siteE = (SiteE) o;
+        return siteId == siteE.siteId && status == siteE.status
+                && statusTime.equals(siteE.statusTime) && url.equals(siteE.url) && name.equals(siteE.name);
     }
 
     @Override

@@ -4,7 +4,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 
-import searchengine.config.SiteConfig;
+import searchengine.config.Site;
 import searchengine.config.SitesList;
 import searchengine.dto.search.SearchData;
 import searchengine.dto.search.SearchErrorResponse;
@@ -79,7 +79,7 @@ public class SearchServiceImpl implements SearchService {
 
     // TODO Получение данных по поисковому запросу
     private boolean searching(String site) {
-        List<SiteConfig> sitesList = sites.getSiteConfigs();
+        List<Site> sitesList = sites.getSites();
         return sitesList.stream().anyMatch(s-> Objects.equals(s.getUrl(), site));
     }
 }

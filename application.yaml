@@ -1,5 +1,5 @@
 indexing-settings:
-  siteconfigs:
+  sites:
     - url: https://www.lenta.ru
       name: Лента.ру
     - url: https://www.skillbox.ru

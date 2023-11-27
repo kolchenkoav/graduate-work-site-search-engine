@@ -4,7 +4,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import searchengine.dto.statistics.StatisticsResponse;
-import searchengine.model.Site;
+import searchengine.model.SiteE;
 import searchengine.model.Status;
 import searchengine.repository.SiteRepository;
 import searchengine.services.IndexingService;
@@ -53,13 +53,13 @@ public class ApiController {
 
     @GetMapping("/test")
     public ResponseEntity<String> test() {
-        Site site = new Site();
-        site.setName("PlayBack.Ru");
-        site.setUrl("https://www.playback.ru");
-        site.setLastError("not error");
-        site.setStatusTime(Timestamp.from(Instant.now()));
-        site.setStatus(Status.INDEXED);
-        siteRepository.save(site);
+        SiteE siteE = new SiteE();
+        siteE.setName("PlayBack.Ru");
+        siteE.setUrl("https://www.playback.ru");
+        siteE.setLastError("not error");
+        siteE.setStatusTime(Timestamp.from(Instant.now()));
+        siteE.setStatus(Status.INDEXED);
+        siteRepository.save(siteE);
         return ResponseEntity.ok("");
     }
 }

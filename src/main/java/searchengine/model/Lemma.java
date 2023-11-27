@@ -35,11 +35,11 @@ public class Lemma {
 
     @OnDelete(action = OnDeleteAction.CASCADE)
     @OneToMany(mappedBy = "lemmaByLemmaId", cascade = CascadeType.MERGE)
-    private Collection<Index> indexTSByLemmaId;
+    private Collection<Index> indexByLemmaId;
 
     @ManyToOne
     @JoinColumn(name = "site_id", referencedColumnName = "site_id", nullable = false, insertable = false, updatable = false)
-    private Site siteBySiteId;
+    private SiteE siteE;
 
     @Override
     public boolean equals(Object o) {
