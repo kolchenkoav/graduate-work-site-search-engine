@@ -17,6 +17,7 @@ import searchengine.repository.SiteRepository;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 @Slf4j
 @RequiredArgsConstructor
@@ -44,7 +45,7 @@ public class StatisticsServiceDBImpl implements StatisticsService {
             item.setName(site.getName());
             item.setUrl(site.getUrl());
 
-            SiteE siteE = siteRepository.findByName(site.getName());
+            SiteE siteE = siteRepository.findByName(site.getName()).orElse(null);
             if (siteE == null) {
                 continue;
             }
