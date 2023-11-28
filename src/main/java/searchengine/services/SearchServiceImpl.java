@@ -4,8 +4,9 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 
+import searchengine.config.Messages;
 import searchengine.config.Site;
-import searchengine.config.SitesList;
+import searchengine.config.SiteList;
 import searchengine.dto.search.SearchData;
 import searchengine.dto.search.SearchErrorResponse;
 import searchengine.dto.search.SearchResponse;
@@ -17,7 +18,7 @@ import java.util.Objects;
 @Service
 @RequiredArgsConstructor
 public class SearchServiceImpl implements SearchService {
-    private final SitesList sites;
+    private final SiteList sites;
 
     //====================================================================================================
     //  Метод осуществляет поиск страниц по переданному поисковому запросу (параметр query).
@@ -71,7 +72,7 @@ public class SearchServiceImpl implements SearchService {
         } else {
             SearchErrorResponse responseFalse = new SearchErrorResponse();
             responseFalse.setResult(false);
-            responseFalse.setError("Задан пустой поисковый запрос");
+            responseFalse.setError(Messages.EMPTY_SEARCH_QUERY_SPECIFIED);
             response = responseFalse;
         }
         return response;

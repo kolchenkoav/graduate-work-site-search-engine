@@ -5,7 +5,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Primary;
 import org.springframework.stereotype.Service;
 import searchengine.config.Site;
-import searchengine.config.SitesList;
+import searchengine.config.SiteList;
 import searchengine.dto.statistics.DetailedStatisticsItem;
 import searchengine.dto.statistics.StatisticsData;
 import searchengine.dto.statistics.StatisticsResponse;
@@ -17,14 +17,13 @@ import searchengine.repository.SiteRepository;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
 
 @Slf4j
 @RequiredArgsConstructor
 @Service
 @Primary
 public class StatisticsServiceDBImpl implements StatisticsService {
-    private final SitesList sites;
+    private final SiteList sites;
     private final SiteRepository siteRepository;
     private final PageRepository pageRepository;
     private final LemmaRepository lemmaTRepository;

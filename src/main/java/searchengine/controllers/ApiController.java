@@ -1,6 +1,7 @@
 package searchengine.controllers;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import searchengine.dto.statistics.StatisticsResponse;
@@ -14,6 +15,7 @@ import searchengine.services.StatisticsService;
 import java.sql.Timestamp;
 import java.time.Instant;
 
+@Slf4j
 @RestController
 @RequestMapping("/api")
 @RequiredArgsConstructor
@@ -40,8 +42,9 @@ public class ApiController {
     }
 
     @PostMapping("/indexPage")
-    public ResponseEntity<Object> indexPage(@RequestParam String nameUrl) {
-        return ResponseEntity.ok(indexingService.indexPage(nameUrl));
+    public ResponseEntity<Object> indexPage(@RequestParam String url) {
+        log.info("*** url: " + url);
+        return ResponseEntity.ok(indexingService.indexPage(url));
     }
 
     @GetMapping("/search")
