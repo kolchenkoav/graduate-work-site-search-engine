@@ -1,12 +1,21 @@
 package searchengine.services;
 
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import searchengine.controllers.ApiController;
+import searchengine.controllers.DefaultController;
 import searchengine.dto.indexing.IndexingErrorResponse;
 import searchengine.dto.indexing.IndexingResponse;
+import searchengine.lemma.LemmaFinder;
+
+import java.io.IOException;
+import java.util.Map;
 
 
 @Service
+@RequiredArgsConstructor
 public class IndexingServiceImpl implements IndexingService {
+    private final DefaultController controller;
     private Object response;
 
     //  Метод запускает полную индексацию всех сайтов
@@ -25,12 +34,27 @@ public class IndexingServiceImpl implements IndexingService {
             responseFalse.setError("Индексация уже запущена");
             response = responseFalse;
         }
+        controller.index();
         return response;
     }
 
     // TODO Запуск полной индексации
     private boolean indexing() {
         // Тут написать код
+
+//        Map<String, Integer> map;
+//        LemmaFinder lemmaFinder = null;
+//        try {
+//            lemmaFinder = LemmaFinder.getInstance();
+//        } catch (IOException e) {
+//            e.printStackTrace();
+//        }
+//        map = lemmaFinder.collectLemmas("Задачи могут отправляться. После программного моделирования страницы вы можете взаимодействовать с ней, выполняя такие задачи, как заполнение форм, их отправка и перемещение между страницами.");
+//        //map.putAll(lemmaFinder.collectLemmas(text2));
+//        map.forEach((k, v)->{
+//            System.out.println(k+" "+v);
+//        });
+
 
         return true;
     }
