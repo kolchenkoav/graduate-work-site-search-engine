@@ -4,12 +4,14 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import searchengine.config.Messages;
+import searchengine.config.Site;
 import searchengine.config.SiteList;
 import searchengine.controllers.DefaultController;
 import searchengine.dto.indexing.IndexingErrorResponse;
 import searchengine.dto.indexing.IndexingResponse;
 import searchengine.model.SiteE;
 import searchengine.model.Status;
+import searchengine.parsing.SiteParser;
 import searchengine.repository.SiteRepository;
 
 import javax.transaction.Transactional;
@@ -27,6 +29,7 @@ import com.google.common.util.concurrent.ThreadFactoryBuilder;
 @Service
 @RequiredArgsConstructor
 public class IndexingServiceImpl implements IndexingService {
+    private final SiteParser siteParser;
     private final SiteList siteListFromConfig;
     private final List<SiteE> siteEList = new ArrayList<>();
     private final SiteRepository siteRepository;
@@ -56,7 +59,6 @@ public class IndexingServiceImpl implements IndexingService {
     }
 
     private boolean indexing() {
-
         if (siteListFromConfig.getSites().stream()
                 .map(e -> siteRepository.countByNameAndStatus(e.getName(), Status.INDEXING))
                 .reduce(0, Integer::sum) > 0) {
@@ -66,45 +68,41 @@ public class IndexingServiceImpl implements IndexingService {
         final ThreadFactory threadFactory = new ThreadFactoryBuilder()
                 .setNameFormat("Парсинг сайтов: %d")
                 .build();
-
         ThreadPoolExecutor executor = (ThreadPoolExecutor) Executors.newFixedThreadPool(4, threadFactory);
         executor.setMaximumPoolSize(Runtime.getRuntime().availableProcessors());
+
         siteListFromConfig.getSites().forEach(e -> {
-            //SiteParser sp = siteParser.copy();
-
-            String name = e.getName();
-            Optional<SiteE> siteByName = siteRepository.findByName(name);
-            if (siteByName.isPresent()) {
-                log.warn("deleteAllByName: " + name);
-                siteRepository.deleteAllByName(name);
-            }
-
-            SiteE siteE = new SiteE(Status.INDEXING, new Timestamp(System.currentTimeMillis()), e.getUrl(), e.getName());
-            siteEList.add(siteE);
-
-            //sp.init(siteT, 3);
-
-            executor.execute(() -> {
-                siteE.setStatus(Status.INDEXING);
-                siteRepository.save(siteE);
-                log.info("Save INDEXING " + name);
-
-                for (int i = 0; i < 10; i++) {
-                    System.out.println(name + " i: " + i);
-                    try {
-                        Thread.sleep(2000);
-                    } catch (InterruptedException ex) {
-                        ex.printStackTrace();
-                    }
-                }
-                System.out.println();
-                siteE.setStatus(Status.INDEXED);
-                siteRepository.save(siteE);
-                log.info("*** Save INDEXED " + name);
-                System.out.println("Thread.currentThread(): " + Thread.currentThread().getName());
-            });
+            deleteByName(e.getName());
+            executor.execute(() -> parsingOneSite(e.getUrl(), e.getName()));
         });
         return true;
+    }
+
+    private void deleteByName(String name) {
+        Optional<SiteE> siteByName = siteRepository.findByName(name);
+        if (siteByName.isPresent()) {
+            log.warn("deleteAllByName: " + name);
+            siteRepository.deleteAllByName(name);
+        }
+    }
+
+    private void parsingOneSite(String url, String name) {
+        SiteE siteE = new SiteE(Status.INDEXING, new Timestamp(System.currentTimeMillis()), url, name);
+        siteEList.add(siteE);
+
+        siteE.setStatus(Status.INDEXING);
+        siteRepository.save(siteE);
+
+        //TODO вызов парсинга сайтов
+        log.info("Parse => url: {} name: {}", url, name);
+
+        SiteParser siteParser = new SiteParser();
+        siteParser.setUrl(url);
+        siteParser.getLinks();
+
+
+        siteE.setStatus(Status.INDEXED);
+        siteRepository.save(siteE);
     }
 
     //  Метод останавливает текущий процесс индексации (переиндексации).
@@ -167,6 +165,7 @@ public class IndexingServiceImpl implements IndexingService {
     //  метод должен вернуть соответствующую ошибку.
     //
     // url — адрес страницы, которую нужно переиндексировать.
+    @Transactional
     @Override
     public Object indexPage(String url) {
         if (indexingPage(url)) {
@@ -184,11 +183,20 @@ public class IndexingServiceImpl implements IndexingService {
 
 
     private boolean indexingPage(String url) {
-        if (!siteListFromConfig.getSites().stream().anyMatch(site -> site.getUrl().equals(url))) {
+        if (siteListFromConfig.getSites().stream().noneMatch(site -> site.getUrl().equals(url))) {
             return false;
         }
-        // TODO Добавление или обновление отдельной страницы
-        log.info("Добавление или обновление отдельной страницы " + url);
+        Site site = siteListFromConfig.getSites().stream()
+                .filter(s -> s.getUrl().equals(url))
+                .findFirst()
+                .orElse(null);
+        if (site == null) {
+            log.warn("");
+            return false;
+        }
+        String name = site.getName();
+        deleteByName(name);
+        parsingOneSite(url, name);
         return true;
     }
 
