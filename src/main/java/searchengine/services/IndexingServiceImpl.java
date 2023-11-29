@@ -1,5 +1,6 @@
 package searchengine.services;
 
+import lombok.NoArgsConstructor;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -13,6 +14,7 @@ import searchengine.model.SiteE;
 import searchengine.model.Status;
 import searchengine.parsing.SiteParser;
 import searchengine.parsing.Utils;
+import searchengine.repository.PageRepository;
 import searchengine.repository.SiteRepository;
 
 import javax.transaction.Transactional;
@@ -30,9 +32,10 @@ import com.google.common.util.concurrent.ThreadFactoryBuilder;
 @Service
 @RequiredArgsConstructor
 public class IndexingServiceImpl implements IndexingService {
-    //private final SiteParser siteParser;
+    private final SiteParser siteParser;
     private final SiteList siteListFromConfig;
     private final List<SiteE> siteEList = new ArrayList<>();
+    private final PageRepository pageRepository;
     private final SiteRepository siteRepository;
     private final DefaultController controller;
     private Object response;
@@ -74,7 +77,7 @@ public class IndexingServiceImpl implements IndexingService {
 
         siteListFromConfig.getSites().forEach(e -> {
             deleteByName(e.getName());
-            executor.execute(() -> parsingOneSite(e.getUrl(), e.getName()));
+            executor.execute(() -> parsingOneSite(e.getUrl(), e.getName(), true));
         });
         return true;
     }
@@ -87,29 +90,32 @@ public class IndexingServiceImpl implements IndexingService {
         }
     }
 
-    private void parsingOneSite(String url, String name) {
-        SiteE siteE = new SiteE(Status.INDEXING, new Timestamp(System.currentTimeMillis()), url, name);
+    private void parsingOneSite(String url, String name, boolean isCreate) {
+        SiteE siteE;
+        if (isCreate) {
+            siteE = new SiteE(Status.INDEXING, new Timestamp(System.currentTimeMillis()), url, name);
+        } else {
+            siteE = siteRepository.findByName(name).orElse(null);
+            if (siteE == null) {
+                log.warn("Сайт {} не найден", name);
+                return;
+            }
+        }
         siteEList.add(siteE);
 
         siteE.setStatus(Status.INDEXING);
         siteRepository.save(siteE);
 
-        //TODO вызов парсинга сайтов
         log.info("Parse => url: {} name: {}", url, name);
 
-        SiteParser siteParser = new SiteParser();
+        SiteParser siteParser = new SiteParser(pageRepository, siteRepository);
         siteParser.setSiteId(siteE.getSiteId());
         siteParser.setUrl(url);
         siteParser.setDomain(Utils.getProtocolAndDomain(url));
 
+        // вызов парсинга сайтов
         siteParser.getLinks();
-//        siteParser.setUrl(url);
-//        siteParser.getLinks();
 
-
-        siteE.setStatus(Status.INDEXED);
-        siteE.setStatusTime(new Timestamp(System.currentTimeMillis()));
-        siteRepository.save(siteE);
     }
 
     //  Метод останавливает текущий процесс индексации (переиндексации).
@@ -202,8 +208,8 @@ public class IndexingServiceImpl implements IndexingService {
             return false;
         }
         String name = site.getName();
-        deleteByName(name);
-        parsingOneSite(url, name);
+        parsingOneSite(url, name, siteRepository.findByName(name).isEmpty());
+
         return true;
     }
 

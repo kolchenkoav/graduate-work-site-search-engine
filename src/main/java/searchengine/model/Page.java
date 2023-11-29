@@ -43,7 +43,7 @@ public class Page {
     @JoinColumn(name = "site_id", insertable = false, updatable = false)
     private SiteE siteE;
 
-    @OneToMany(mappedBy = "pageId", cascade = CascadeType.MERGE)
+    @OneToMany(mappedBy = "pageId", cascade = CascadeType.ALL)
     private List<Index> indices = new ArrayList<>();
 
     @Override

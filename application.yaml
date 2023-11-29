@@ -4,8 +4,8 @@ indexing-settings:
       name: Quotes to Scrape
     - url: https://starper55plys.ru/html/html-kod-sayta/
       name: Шаблон сайта на чистом HTML
-#    - url: https://www.playback.ru
-#      name: PlayBack.Ru
+    - url: https://konstruktorysajtov.com/kak-sozdat-sajt-vizitky-samomy/
+      name: Как создать сайт-визитку самому
 
 server:
   port: 8080

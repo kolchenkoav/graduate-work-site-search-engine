@@ -36,7 +36,7 @@ public class Lemma {
     @Column(name = "frequency")
     private int frequency;
 
-    @OneToMany(mappedBy = "lemmaId", cascade = CascadeType.MERGE)
+    @OneToMany(mappedBy = "lemmaId", cascade = CascadeType.ALL)
     private List<Index> indices = new ArrayList<>();
 
     @ManyToOne

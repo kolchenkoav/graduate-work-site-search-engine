@@ -1,15 +1,28 @@
 package searchengine.parsing;
 
 
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
+import searchengine.model.SiteE;
+import searchengine.model.Status;
 
+import searchengine.repository.PageRepository;
+import searchengine.repository.SiteRepository;
+
+import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.TimeUnit;
 
-//@Component
+@Slf4j
+@Component
+@RequiredArgsConstructor
 public class SiteParser {
+    private final PageRepository pageRepository;
+    private final SiteRepository siteRepository;
+
     private int siteId;
     private String domain;
     private String url;
@@ -37,7 +50,7 @@ public class SiteParser {
         System.out.println("Parsing URL: " + url);
         ForkJoinPool pool = new ForkJoinPool();
 
-        parsedMap = new ParsePage();
+        parsedMap = new ParsePage(pageRepository);
         parsedMap.setUrl(url);
         parsedMap.setDomain(domain);
         parsedMap.setParent(null);
@@ -58,7 +71,18 @@ public class SiteParser {
 
         pool.shutdown();
         List<String> results = parsedMap.join();
+
+
+        SiteE siteE = siteRepository.findById(siteId).orElse(null);
+        if (siteE == null) {
+            log.warn("Сайт с ID: {} не найден", siteE);
+            return;
+        }
+        siteE.setStatus(Status.INDEXED);
+        siteE.setStatusTime(new Timestamp(System.currentTimeMillis()));
+        siteRepository.save(siteE);
+
         System.out.println();
-        System.out.printf("%s: %d links found.\n", "Total", results.size());
+        System.out.printf("%s: %d links found.\n", results.get(0), results.size());
     }
 }

@@ -44,11 +44,11 @@ public class SiteE {
     @Column(columnDefinition = "VARCHAR(255)")
     private String name;
 
-    @OneToMany(mappedBy = "siteId", cascade = CascadeType.MERGE)
+    @OneToMany(mappedBy = "siteId", cascade = CascadeType.ALL)
     private List<Lemma> lemmas = new ArrayList<>();
 
 
-    @OneToMany(mappedBy = "siteId", cascade = CascadeType.MERGE)
+    @OneToMany(mappedBy = "siteId", cascade = CascadeType.ALL)
     private List<Page> pages = new ArrayList<>();
 
     @Override

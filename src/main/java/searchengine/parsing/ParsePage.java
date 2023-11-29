@@ -1,13 +1,18 @@
 package searchengine.parsing;
 
-import org.apache.logging.log4j.LogManager;
-import org.apache.logging.log4j.Logger;
+
+import lombok.Getter;
+import lombok.RequiredArgsConstructor;
+import lombok.Setter;
+import lombok.extern.slf4j.Slf4j;
 import org.jsoup.HttpStatusException;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
+import org.springframework.stereotype.Component;
 import searchengine.model.Page;
+import searchengine.repository.PageRepository;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -15,8 +20,13 @@ import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.RecursiveTask;
 
+@Slf4j
+@Component
+@Getter
+@Setter
+@RequiredArgsConstructor
 public class ParsePage extends RecursiveTask<List<String>> {
-    //    private static final Logger logger = LogManager.getLogger(ParsePage.class);
+    private final PageRepository pageRepository;
     private int siteId;
     private String url;
     private String domain;
@@ -27,42 +37,13 @@ public class ParsePage extends RecursiveTask<List<String>> {
 
     private static final ConcurrentHashMap<String, ParsePage> uniqueLinks = new ConcurrentHashMap<>();
 
-    public void setSiteId(int siteId) {
-        //System.out.println("### ParsePage.setSiteId() -> siteId: " + siteId);
-        this.siteId = siteId;
-    }
-
-    public int getSiteId() {
-        return siteId;
-    }
-
-    public void setUrl(String url) {
-        this.url = url;
-    }
-
-    public void setDomain(String domain) {
-        this.domain = domain;
-    }
-
-    public void setParent(ParsePage parent) {
-        this.parent = parent;
-    }
-
-    public void setLinks(List<ParsePage> links) {
-        this.links = links;
-    }
-
-    public void setLevel(int level) {
-        this.level = level;
-    }
-
     private String getLang(String beginHtml) {
         String result = "";
         try {
             int indexBegin = beginHtml.indexOf("lang=");
             result = beginHtml.substring(indexBegin + 6, indexBegin + 8);
         } catch (Exception e) {
-            //log.warn(e.getMessage());
+            log.warn(e.getMessage());
         }
         return result;
     }
@@ -74,7 +55,10 @@ public class ParsePage extends RecursiveTask<List<String>> {
 
         Document doc = null;
         try {
-            doc = Jsoup.connect(url).get();
+            doc = Jsoup.connect(url)
+                    .userAgent("Mozilla/5.0 (Windows; U; WindowsNT 5.1; en-US; rv1.8.1.6) Gecko/20070725 Firefox/2.0.0.6")
+                    .referrer("http://www.google.com")
+                    .get();
             Thread.sleep((int) (Math.random() * 50 + 100));
         } catch (HttpStatusException e) {        //IOException | InterruptedException
             code = e.getStatusCode();
@@ -103,14 +87,14 @@ public class ParsePage extends RecursiveTask<List<String>> {
                     page.setCode(code);
                     page.setPath(checkUrl);
                     page.setContent(content);
-                    System.out.println("*** add   siteId: " + page.getSiteId() + " path: " + page.getPath() + " code: " + code);
-                    //pageRepository.save(page);
-                    //log.info("'{}' page has been added ", page.getPath());
+                    //System.out.println("*** add   siteId: " + page.getSiteId() + " path: " + page.getPath() + " code: " + code);
+                    pageRepository.save(page);
+                    log.info("'{}' page has been added ", page.getPath());
                     //===================
 
                     list.add(checkUrl);
 
-                    ParsePage newParse = new ParsePage();
+                    ParsePage newParse = new ParsePage(pageRepository);
                     newParse.setUrl(checkUrl);
                     newParse.setParent(this);
                     newParse.setDomain(domain);

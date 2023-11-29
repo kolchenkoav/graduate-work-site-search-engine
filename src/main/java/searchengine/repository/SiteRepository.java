@@ -9,7 +9,7 @@ import java.util.List;
 import java.util.Optional;
 
 @Repository
-public interface SiteRepository extends JpaRepository<SiteE, Long> {
+public interface SiteRepository extends JpaRepository<SiteE, Integer> {
     Optional<SiteE> findByName(String name);
 
     List<SiteE> findSiteEByName(String name);
