@@ -12,6 +12,7 @@ import searchengine.dto.indexing.IndexingResponse;
 import searchengine.model.SiteE;
 import searchengine.model.Status;
 import searchengine.parsing.SiteParser;
+import searchengine.parsing.Utils;
 import searchengine.repository.SiteRepository;
 
 import javax.transaction.Transactional;
@@ -29,7 +30,7 @@ import com.google.common.util.concurrent.ThreadFactoryBuilder;
 @Service
 @RequiredArgsConstructor
 public class IndexingServiceImpl implements IndexingService {
-    private final SiteParser siteParser;
+    //private final SiteParser siteParser;
     private final SiteList siteListFromConfig;
     private final List<SiteE> siteEList = new ArrayList<>();
     private final SiteRepository siteRepository;
@@ -97,11 +98,17 @@ public class IndexingServiceImpl implements IndexingService {
         log.info("Parse => url: {} name: {}", url, name);
 
         SiteParser siteParser = new SiteParser();
+        siteParser.setSiteId(siteE.getSiteId());
         siteParser.setUrl(url);
+        siteParser.setDomain(Utils.getProtocolAndDomain(url));
+
         siteParser.getLinks();
+//        siteParser.setUrl(url);
+//        siteParser.getLinks();
 
 
         siteE.setStatus(Status.INDEXED);
+        siteE.setStatusTime(new Timestamp(System.currentTimeMillis()));
         siteRepository.save(siteE);
     }
 

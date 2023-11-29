@@ -59,4 +59,17 @@ public class Page {
     public int hashCode() {
         return Objects.hash(pageId, siteId, path, code, content);
     }
+
+    @Override
+    public String toString() {
+        return "Page{" +
+                "pageId=" + pageId +
+                ", siteId=" + siteId +
+                ", path='" + path + '\'' +
+                ", code=" + code +
+                ", content='" + content + '\'' +
+                ", siteE=" + siteE +
+                ", indices=" + indices +
+                '}';
+    }
 }

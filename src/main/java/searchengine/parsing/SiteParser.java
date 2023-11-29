@@ -1,56 +1,58 @@
 package searchengine.parsing;
 
-import lombok.Getter;
-import lombok.RequiredArgsConstructor;
-import lombok.Setter;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.context.annotation.Scope;
+
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ForkJoinPool;
+import java.util.concurrent.TimeUnit;
 
-@Slf4j
-@RequiredArgsConstructor
-@Getter
-@Setter
-@Component
-@Scope("prototype")
+//@Component
 public class SiteParser {
+    private int siteId;
     private String domain;
     private String url;
     private ParsePage parsedMap;
 
-//    public SiteParser(String url) {
-//        this.url = url;
-//        this.domain = Utils.getProtocolAndDomain(url);
-//    }
+    public int getSiteId() {
+        return siteId;
+    }
+
+    public void setSiteId(int siteId) {
+        System.out.println("### SiteParser.setSiteId() -> siteId: "+siteId);
+        this.siteId = siteId;
+    }
+
+    public void setDomain(String domain) {
+        this.domain = domain;
+    }
+
+    public void setUrl(String url) {
+        this.url = url;
+    }
 
     public void getLinks() {
         System.out.println();
         System.out.println("Parsing URL: " + url);
+        ForkJoinPool pool = new ForkJoinPool();
 
-        ForkJoinPool pool = new ForkJoinPool(Runtime.getRuntime().availableProcessors());
-        this.parsedMap = new ParsePage();
-        this.parsedMap.setUrl(this.url);
-        this.parsedMap.setDomain(Utils.getProtocolAndDomain(url));
-        this.parsedMap.setParent(null);
-        this.parsedMap.setLinks(new ArrayList<>());
-        this.parsedMap.setLevel(0);
+        parsedMap = new ParsePage();
+        parsedMap.setUrl(url);
+        parsedMap.setDomain(domain);
+        parsedMap.setParent(null);
+        parsedMap.setLinks(new ArrayList<>());
+        parsedMap.setLevel(0);
+        parsedMap.setSiteId(siteId);
 
         pool.execute(parsedMap);
         do {
 //            System.out.printf("\rActive threads: %d     Task count: %d    Steal count: %d     Run count: %d",
 //                    pool.getActiveThreadCount(), pool.getQueuedTaskCount(), pool.getStealCount(), pool.getRunningThreadCount());
             try {
-                Thread.sleep(100);
+                TimeUnit.MILLISECONDS.sleep(100);
             } catch (InterruptedException e) {
-                log.error(e.getMessage());
-            }
-
-            if (pool.isTerminated()) {
-                break;
+                //logger.error(ExceptionUtils.getStackTrace(e));
             }
         } while (!parsedMap.isDone());
 
@@ -59,5 +61,4 @@ public class SiteParser {
         System.out.println();
         System.out.printf("%s: %d links found.\n", "Total", results.size());
     }
-
 }
