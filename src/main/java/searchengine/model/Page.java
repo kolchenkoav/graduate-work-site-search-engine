@@ -40,7 +40,7 @@ public class Page {
 
 
     @ManyToOne
-    @JoinColumn(name = "site_id", insertable = false, updatable = false)
+    @JoinColumn(name = "site_id", insertable = false, updatable = false)   //
     private SiteE siteE;
 
     @OneToMany(mappedBy = "pageId", cascade = CascadeType.ALL)

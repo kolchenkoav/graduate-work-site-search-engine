@@ -40,7 +40,7 @@ public class Lemma {
     private List<Index> indices = new ArrayList<>();
 
     @ManyToOne
-    @JoinColumn(name = "site_id", insertable = false, updatable = false)
+    @JoinColumn(name = "site_id", insertable = false, updatable = false) //, insertable = false, updatable = false
     private SiteE siteE;
 
     @Override

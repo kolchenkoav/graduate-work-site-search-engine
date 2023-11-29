@@ -30,11 +30,11 @@ public class Index {
     private double rank;
 
     @ManyToOne
-    @JoinColumn(name = "page_id", insertable = false, updatable = false)
+    @JoinColumn(name = "page_id", insertable = false, updatable = false)  //, insertable = false, updatable = false
     private Page page;
 
     @ManyToOne
-    @JoinColumn(name = "lemma_id", insertable = false, updatable = false)
+    @JoinColumn(name = "lemma_id", insertable = false, updatable = false) //, insertable = false, updatable = false
     private Lemma lemma;
 
     @Override

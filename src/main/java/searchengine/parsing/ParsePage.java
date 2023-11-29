@@ -35,7 +35,7 @@ public class ParsePage extends RecursiveTask<List<String>> {
     private int level;
     int code = 200;
 
-    private static final ConcurrentHashMap<String, ParsePage> uniqueLinks = new ConcurrentHashMap<>();
+    private static ConcurrentHashMap<String, ParsePage> uniqueLinks = new ConcurrentHashMap<>();
 
     private String getLang(String beginHtml) {
         String result = "";
@@ -105,6 +105,8 @@ public class ParsePage extends RecursiveTask<List<String>> {
                     newParse.fork();
                     tasks.add(newParse);
                     links.add(newParse);
+                } else {
+                    log.warn(String.valueOf(uniqueLinks.size()));
                 }
             }
         }
@@ -114,6 +116,8 @@ public class ParsePage extends RecursiveTask<List<String>> {
         } catch (RuntimeException e) {
             //logger.warn(e);
         }
+        tasks = null;
+        //uniqueLinks = null;
         return list;
     }
 

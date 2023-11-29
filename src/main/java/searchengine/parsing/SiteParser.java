@@ -1,7 +1,9 @@
 package searchengine.parsing;
 
 
+import lombok.Getter;
 import lombok.RequiredArgsConstructor;
+import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import searchengine.model.SiteE;
@@ -18,6 +20,8 @@ import java.util.concurrent.TimeUnit;
 
 @Slf4j
 @Component
+@Getter
+@Setter
 @RequiredArgsConstructor
 public class SiteParser {
     private final PageRepository pageRepository;
@@ -27,23 +31,6 @@ public class SiteParser {
     private String domain;
     private String url;
     private ParsePage parsedMap;
-
-    public int getSiteId() {
-        return siteId;
-    }
-
-    public void setSiteId(int siteId) {
-        System.out.println("### SiteParser.setSiteId() -> siteId: "+siteId);
-        this.siteId = siteId;
-    }
-
-    public void setDomain(String domain) {
-        this.domain = domain;
-    }
-
-    public void setUrl(String url) {
-        this.url = url;
-    }
 
     public void getLinks() {
         System.out.println();
@@ -83,6 +70,9 @@ public class SiteParser {
         siteRepository.save(siteE);
 
         System.out.println();
-        System.out.printf("%s: %d links found.\n", results.get(0), results.size());
+        if (!results.isEmpty()) {
+            System.out.printf("%s: %d links found.\n", results.get(0), results.size());
+        }
+        parsedMap = null;
     }
 }

@@ -90,6 +90,7 @@ public class IndexingServiceImpl implements IndexingService {
         }
     }
 
+
     private void parsingOneSite(String url, String name, boolean isCreate) {
         SiteE siteE;
         if (isCreate) {
@@ -115,6 +116,7 @@ public class IndexingServiceImpl implements IndexingService {
 
         // вызов парсинга сайтов
         siteParser.getLinks();
+        siteParser = null;
 
     }
 
