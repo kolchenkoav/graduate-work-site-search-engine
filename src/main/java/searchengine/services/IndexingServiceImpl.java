@@ -41,6 +41,8 @@ public class IndexingServiceImpl implements IndexingService {
     private final SiteRepository siteRepository;
     private final DefaultController controller;
     private Object response;
+    private ThreadPoolExecutor executor;
+    public static boolean isStopIndexing = false;
 
     //  Метод запускает полную индексацию всех сайтов
     //  или полную переиндексацию, если они уже проиндексированы.
@@ -49,7 +51,7 @@ public class IndexingServiceImpl implements IndexingService {
     @Transactional
     @Override
     public Object startIndexing() {
-
+        isStopIndexing = false;
         if (indexing()) {
             IndexingResponse responseTrue = new IndexingResponse();
             responseTrue.setResult(true);
@@ -70,18 +72,24 @@ public class IndexingServiceImpl implements IndexingService {
                 .reduce(0, Integer::sum) > 0) {
             return false;
         }
-
         parsePage.clearUniqueLinks();   // Очистка списка уникальных ссылок
+
         final ThreadFactory threadFactory = new ThreadFactoryBuilder()
-                .setNameFormat("Парсинг сайтов: %d")
+                .setNameFormat("Cайт: %d")
                 .build();
-        ThreadPoolExecutor executor = (ThreadPoolExecutor) Executors.newFixedThreadPool(4, threadFactory);
+        executor = (ThreadPoolExecutor) Executors.newFixedThreadPool(4, threadFactory);
         executor.setMaximumPoolSize(Runtime.getRuntime().availableProcessors());
 
         siteListFromConfig.getSites().forEach(e -> {
             deleteByName(e.getName());
-            executor.execute(() -> parsingOneSite(e.getUrl(), e.getName(), true));
+            if (isStopIndexing) {
+                executor.shutdownNow();
+            } else {
+                executor.execute(() -> parsingOneSite(e.getUrl(), e.getName(), true));
+            }
         });
+
+        executor.shutdown();
         return true;
     }
 
@@ -95,30 +103,27 @@ public class IndexingServiceImpl implements IndexingService {
 
 
     private void parsingOneSite(String url, String name, boolean isCreate) {
+        isStopIndexing = false;
         SiteE siteE;
         if (isCreate) {
-
             siteE = new SiteE(Status.INDEXING, new Timestamp(System.currentTimeMillis()), url, name);
             log.info("Site '{}' is created...", name);
         } else {
-
             siteE = siteRepository.findByName(name).orElse(null);
-
             if (siteE == null) {
                 log.warn("Сайт {} не найден", name);
                 return;
             }
+            siteE.setStatus(Status.INDEXING);
             log.info("Site {} is updated...", siteE.getName());
             int siteId = siteE.getSiteId();
             pageRepository.deleteBySiteId(siteId);
         }
         siteEList.add(siteE);
-
-        siteE.setStatus(Status.INDEXING);
         siteRepository.save(siteE);
-
         log.info("Parse => url: {} name: {}", url, name);
 
+        // подготовка данных для
         SiteParser siteParser = new SiteParser(pageRepository, siteRepository);
         siteParser.setSiteId(siteE.getSiteId());
         siteParser.setUrl(url);
@@ -126,8 +131,6 @@ public class IndexingServiceImpl implements IndexingService {
 
         // вызов парсинга сайтов
         siteParser.getLinks();
-        siteParser = null;
-
     }
 
     //  Метод останавливает текущий процесс индексации (переиндексации).
@@ -150,6 +153,7 @@ public class IndexingServiceImpl implements IndexingService {
 
 
     private boolean stopping() {
+        isStopIndexing = true;
         try {
             long size = siteEList.stream().filter(e -> e.getStatus() == Status.INDEXING).count();
             if (size == 0) {
@@ -157,13 +161,9 @@ public class IndexingServiceImpl implements IndexingService {
                 return false;
             }
 
-            //SiteParser.forceStop();
-            //public static void forceStop() {
-            //        if (poolList != null && !poolList.isEmpty()) {
-            //            poolList.forEach(ForkJoinPool::shutdownNow);
-            //            poolList = new ConcurrentLinkedQueue<>();
-            //        }
-            //    }
+            SiteParser.forceStop();
+
+            executor.shutdownNow();
 
             siteEList.stream()
                     .filter(e -> e.getStatus() == Status.INDEXING)

@@ -5,6 +5,7 @@ import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
+import org.jsoup.Connection;
 import org.jsoup.HttpStatusException;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
@@ -15,6 +16,7 @@ import searchengine.model.Page;
 import searchengine.repository.PageRepository;
 
 import java.io.IOException;
+import java.lang.invoke.WrongMethodTypeException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
@@ -34,6 +36,7 @@ public class ParsePage extends RecursiveTask<List<String>> {
     private List<ParsePage> links = new ArrayList<>();
     private int level;
     int code = 200;
+    Connection.Response response = null;
 
     private static ConcurrentHashMap<String, ParsePage> uniqueLinks = new ConcurrentHashMap<>();
 
@@ -59,18 +62,35 @@ public class ParsePage extends RecursiveTask<List<String>> {
 
         Document doc = null;
         try {
-            doc = Jsoup.connect(url)
-                    .userAgent("Mozilla/5.0 (Windows; U; WindowsNT 5.1; en-US; rv1.8.1.6) Gecko/20070725 Firefox/2.0.0.6")
-                    .referrer("http://www.google.com")
-                    .get();
+            response = Jsoup.connect(url)
+                    .userAgent("Mozilla/5.0 (Windows; U; WindowsNT 5.1; en-US; rv1.8.1.6) YandexIndexingMachine")
+                    .referrer("https://www.google.com")
+                    .ignoreContentType(true)
+                    .timeout(5000)
+                    .ignoreHttpErrors(true)
+                    .execute();
+            if (!response.contentType().startsWith("text/html;")) {
+                throw new WrongMethodTypeException("wrong format");
+            }
+            code = response.statusCode();
             Thread.sleep((int) (Math.random() * 50 + 100));
-        } catch (HttpStatusException e) {        //IOException | InterruptedException
-            code = e.getStatusCode();
-            //log.warn(e.getMessage());
+            doc = response.parse();
+
+        } catch (HttpStatusException e) {
+
         } catch (IOException | InterruptedException e) {
-            //log.warn(e.getMessage());
             return list;
         }
+
+        String content = doc.body().text();
+        Page page = new Page();
+        page.setSiteId(siteId);
+        page.setCode(code);
+        page.setPath(url);
+        page.setContent(content);
+        pageRepository.save(page);
+        log.info("{} ", page.getPath());
+        //log.info("===> "+doc.body().text().substring(1, 100));
 
         Elements elements = doc.select("a[href~=^/?([\\w\\d/-]+)?]");
         for (Element link : elements) {
@@ -81,20 +101,7 @@ public class ParsePage extends RecursiveTask<List<String>> {
                 }
 
                 if (!checkAddUrl(checkUrl)) {
-                    //===================
-                    String content = doc.body().text();
-                    String lang = getLang(doc.html().substring(1, 50));
-                    //System.out.println("Add =>  lang: " + lang + " code: " + code + " content" + content.substring(1, 70));
 
-                    Page page = new Page();
-                    page.setSiteId(siteId);
-                    page.setCode(code);
-                    page.setPath(checkUrl);
-                    page.setContent(content);
-                    //System.out.println("*** add   siteId: " + page.getSiteId() + " path: " + page.getPath() + " code: " + code);
-                    pageRepository.save(page);
-                    log.info("'{}' page has been added ", page.getPath());
-                    //===================
 
                     list.add(checkUrl);
 

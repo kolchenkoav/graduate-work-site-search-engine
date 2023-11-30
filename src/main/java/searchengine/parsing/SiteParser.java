@@ -12,10 +12,12 @@ import searchengine.model.Status;
 
 import searchengine.repository.PageRepository;
 import searchengine.repository.SiteRepository;
+import searchengine.services.IndexingServiceImpl;
 
 import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
@@ -28,18 +30,25 @@ import java.util.concurrent.TimeUnit;
 public class SiteParser {
     private final PageRepository pageRepository;
     private final SiteRepository siteRepository;
+    private static ForkJoinPool pool;
 
     private int siteId;
     private String domain;
     private String url;
     private ParsePage parsedMap;
 
+    public static void forceStop() {
+        if (pool != null) {
+            pool.shutdownNow();
+        }
+    }
+
     public void getLinks() {
         System.out.println();
         System.out.println("Parsing URL: " + url);
 
 
-        ForkJoinPool pool = new ForkJoinPool(4);
+        pool = new ForkJoinPool(4);
 
         parsedMap = new ParsePage(pageRepository);
         parsedMap.setUrl(url);
@@ -69,9 +78,12 @@ public class SiteParser {
             log.warn("Сайт с ID: {} не найден", siteE);
             return;
         }
-        siteE.setStatus(Status.INDEXED);
-        siteE.setStatusTime(new Timestamp(System.currentTimeMillis()));
-        siteRepository.save(siteE);
+
+        if (!IndexingServiceImpl.isStopIndexing) {
+            siteE.setStatus(Status.INDEXED);
+            siteE.setStatusTime(new Timestamp(System.currentTimeMillis()));
+            siteRepository.save(siteE);
+        }
 
         System.out.println();
         if (!results.isEmpty()) {
