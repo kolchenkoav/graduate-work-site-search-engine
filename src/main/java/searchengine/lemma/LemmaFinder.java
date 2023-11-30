@@ -79,6 +79,25 @@ public class LemmaFinder {
         return lemmaSet;
     }
 
+    /**
+     * @param text текст из которого собираем все леммы
+     * @return набор НЕ уникальных лемм найденных в тексте
+     */
+    public List<String> getLemmaList(String text) {
+        String[] textArray = arrayContainsRussianWords(text);
+        List<String> lemmaList = new ArrayList<>();
+        for (String word : textArray) {
+            if (!word.isEmpty() && isCorrectWordForm(word)) {
+                List<String> wordBaseForms = luceneMorphology.getMorphInfo(word);
+                if (anyWordBaseBelongToParticle(wordBaseForms)) {
+                    continue;
+                }
+                lemmaList.addAll(luceneMorphology.getNormalForms(word));
+            }
+        }
+        return lemmaList;
+    }
+
     private boolean anyWordBaseBelongToParticle(List<String> wordBaseForms) {
         return wordBaseForms.stream().anyMatch(this::hasParticleProperty);
     }

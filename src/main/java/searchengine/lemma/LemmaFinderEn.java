@@ -8,7 +8,7 @@ import java.util.*;
 public class LemmaFinderEn {
     private final LuceneMorphology luceneMorphology;
     private static final String WORD_TYPE_REGEX = "\\W\\w&&[^a-zA-Z\\s]";
-    private static final String[] particlesNames = new String[]{"NOUN", "ARTICLE", "CONJ", "PREP"};
+    private static final String[] particlesNames = new String[]{"ARTICLE", "CONJ", "PREP"};
 
     public static LemmaFinderEn getInstance() throws IOException {
         LuceneMorphology morphology= new EnglishLuceneMorphology();
@@ -77,6 +77,25 @@ public class LemmaFinderEn {
             }
         }
         return lemmaSet;
+    }
+
+    /**
+     * @param text текст из которого собираем все леммы
+     * @return набор НЕ уникальных лемм найденных в тексте
+     */
+    public List<String> getLemmaList(String text) {
+        String[] textArray = arrayContainsEnglishWords(text);
+        List<String> lemmaList = new ArrayList<>();
+        for (String word : textArray) {
+            if (!word.isEmpty() && isCorrectWordForm(word)) {
+                List<String> wordBaseForms = luceneMorphology.getMorphInfo(word);
+                if (anyWordBaseBelongToParticle(wordBaseForms)) {
+                    continue;
+                }
+                lemmaList.addAll(luceneMorphology.getNormalForms(word));
+            }
+        }
+        return lemmaList;
     }
 
     private boolean anyWordBaseBelongToParticle(List<String> wordBaseForms) {

@@ -12,6 +12,7 @@ import searchengine.dto.indexing.IndexingErrorResponse;
 import searchengine.dto.indexing.IndexingResponse;
 import searchengine.model.SiteE;
 import searchengine.model.Status;
+import searchengine.parsing.ParsePage;
 import searchengine.parsing.SiteParser;
 import searchengine.parsing.Utils;
 import searchengine.repository.PageRepository;
@@ -33,6 +34,7 @@ import com.google.common.util.concurrent.ThreadFactoryBuilder;
 @RequiredArgsConstructor
 public class IndexingServiceImpl implements IndexingService {
     private final SiteParser siteParser;
+    private final ParsePage parsePage;
     private final SiteList siteListFromConfig;
     private final List<SiteE> siteEList = new ArrayList<>();
     private final PageRepository pageRepository;
@@ -69,6 +71,7 @@ public class IndexingServiceImpl implements IndexingService {
             return false;
         }
 
+        parsePage.clearUniqueLinks();   // Очистка списка уникальных ссылок
         final ThreadFactory threadFactory = new ThreadFactoryBuilder()
                 .setNameFormat("Парсинг сайтов: %d")
                 .build();
@@ -94,13 +97,20 @@ public class IndexingServiceImpl implements IndexingService {
     private void parsingOneSite(String url, String name, boolean isCreate) {
         SiteE siteE;
         if (isCreate) {
+
             siteE = new SiteE(Status.INDEXING, new Timestamp(System.currentTimeMillis()), url, name);
+            log.info("Site '{}' is created...", name);
         } else {
+
             siteE = siteRepository.findByName(name).orElse(null);
+
             if (siteE == null) {
                 log.warn("Сайт {} не найден", name);
                 return;
             }
+            log.info("Site {} is updated...", siteE.getName());
+            int siteId = siteE.getSiteId();
+            pageRepository.deleteBySiteId(siteId);
         }
         siteEList.add(siteE);
 
@@ -210,6 +220,7 @@ public class IndexingServiceImpl implements IndexingService {
             return false;
         }
         String name = site.getName();
+        parsePage.clearUniqueLinks();
         parsingOneSite(url, name, siteRepository.findByName(name).isEmpty());
 
         return true;

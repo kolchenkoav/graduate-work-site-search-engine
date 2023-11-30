@@ -8,4 +8,6 @@ import searchengine.model.SiteE;
 @Repository
 public interface PageRepository extends JpaRepository<Page, Long>  {
     int countBySiteId(int siteId);
+
+    void deleteBySiteId(int siteId);
 }

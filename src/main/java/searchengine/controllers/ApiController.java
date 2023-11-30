@@ -7,6 +7,7 @@ import org.springframework.web.bind.annotation.*;
 import searchengine.dto.statistics.StatisticsResponse;
 import searchengine.model.SiteE;
 import searchengine.model.Status;
+import searchengine.parsing.ParseLemma;
 import searchengine.repository.SiteRepository;
 import searchengine.services.IndexingService;
 import searchengine.services.SearchService;
@@ -23,7 +24,8 @@ public class ApiController {
     private final StatisticsService statisticsService;
     private final IndexingService indexingService;
     private final SearchService searchService;
-    private final SiteRepository siteRepository;
+    private final ParseLemma parseLemma;
+
 
     @GetMapping("/statistics")
     public ResponseEntity<StatisticsResponse> statistics() {
@@ -31,24 +33,24 @@ public class ApiController {
     }
 
     @GetMapping("/startIndexing")
-    public ResponseEntity<Object> startIndexing() {
+    public ResponseEntity<?> startIndexing() {
         statistics();
         return ResponseEntity.ok(indexingService.startIndexing());
     }
 
     @GetMapping("/stopIndexing")
-    public ResponseEntity<Object> stopIndexing() {
+    public ResponseEntity<?> stopIndexing() {
         return ResponseEntity.ok(indexingService.stopIndexing());
     }
 
     @PostMapping("/indexPage")
-    public ResponseEntity<Object> indexPage(@RequestParam String url) {
+    public ResponseEntity<?> indexPage(@RequestParam String url) {
         log.info("*** url: " + url);
         return ResponseEntity.ok(indexingService.indexPage(url));
     }
 
     @GetMapping("/search")
-    public ResponseEntity<Object> search(@RequestParam String query,
+    public ResponseEntity<?> search(@RequestParam String query,
                                          @RequestParam(required = false) String site,
                                          @RequestParam int offset,
                                          @RequestParam(required = false) int limit) {
@@ -56,14 +58,8 @@ public class ApiController {
     }
 
     @GetMapping("/test")
-    public ResponseEntity<String> test() {
-        SiteE siteE = new SiteE();
-        siteE.setName("PlayBack.Ru");
-        siteE.setUrl("https://www.playback.ru");
-        siteE.setLastError("not error");
-        siteE.setStatusTime(Timestamp.from(Instant.now()));
-        siteE.setStatus(Status.INDEXED);
-        siteRepository.save(siteE);
-        return ResponseEntity.ok("");
+    public ResponseEntity<?> test() {
+        parseLemma.parsing("armchair Ways way. tables table chair chairs armchairs. Повторное появление леопарда в Осетии позволяет предположить. Хлеба лошади");
+        return ResponseEntity.ok(123);
     }
 }

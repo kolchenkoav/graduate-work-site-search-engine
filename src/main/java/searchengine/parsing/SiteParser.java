@@ -1,6 +1,7 @@
 package searchengine.parsing;
 
 
+import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.Setter;
@@ -16,6 +17,7 @@ import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ForkJoinPool;
+import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.TimeUnit;
 
 @Slf4j
@@ -35,7 +37,9 @@ public class SiteParser {
     public void getLinks() {
         System.out.println();
         System.out.println("Parsing URL: " + url);
-        ForkJoinPool pool = new ForkJoinPool();
+
+
+        ForkJoinPool pool = new ForkJoinPool(4);
 
         parsedMap = new ParsePage(pageRepository);
         parsedMap.setUrl(url);
