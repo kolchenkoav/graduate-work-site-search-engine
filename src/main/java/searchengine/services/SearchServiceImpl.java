@@ -12,7 +12,12 @@ import searchengine.dto.search.SearchData;
 import searchengine.dto.search.SearchErrorResponse;
 import searchengine.dto.search.SearchResponse;
 import searchengine.lemma.LemmaFinder;
+import searchengine.model.Index;
+import searchengine.model.Lemma;
+import searchengine.model.SiteE;
+import searchengine.repository.IndexRepository;
 import searchengine.repository.LemmaRepository;
+import searchengine.repository.SiteRepository;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -25,6 +30,9 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class SearchServiceImpl implements SearchService {
     private final LemmaRepository lemmaRepository;
+    private final IndexRepository indexRepository;
+    private final SiteRepository siteRepository;
+
     private final SiteList sites;
 
     //====================================================================================================
@@ -81,8 +89,23 @@ public class SearchServiceImpl implements SearchService {
         //  Запрос список:          Map<String, Integer> mapLemmas
         //========================================================
         siteList.forEach(siteForSearch -> {
-            log.info("Поиск по сайту: {} ...", siteForSearch.getUrl());
+            SiteE siteE = siteRepository.findByName(siteForSearch.getName()).orElse(null);
 
+            assert siteE != null;
+            int siteId = siteE.getSiteId();
+            log.info("Поиск по сайту: {} ...", siteForSearch.getUrl());
+                mapLemmas.forEach((k, v) -> {
+                    Lemma lemma = new Lemma();
+                    lemma = lemmaRepository.findBySiteIdAndLemma(siteId, k).orElse(null);
+                    if (lemma == null) {
+                        // not found
+
+                    } else {
+                        Index index = new Index();
+                        List<Index> indexList = indexRepository.findByLemmaId(lemma.getLemmaId()).orElse(null);
+                        indexList.forEach(System.out::println);
+                    }
+                });
 
             });
 

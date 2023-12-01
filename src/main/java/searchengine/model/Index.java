@@ -49,4 +49,14 @@ public class Index {
     public int hashCode() {
         return Objects.hash(indexId, pageId, lemmaId, rank);
     }
+
+    @Override
+    public String toString() {
+        return "Index{" +
+                "indexId=" + indexId +
+                ", pageId=" + pageId +
+                ", lemmaId=" + lemmaId +
+                ", rank=" + rank +
+                '}';
+    }
 }

@@ -30,7 +30,8 @@ public class ParseLemma {
 //            }
             Lemma lemma;
             if (lemmaRepository.existsBySiteIdAndLemma(siteId, lemmaE.getKey())) {
-                lemma = lemmaRepository.findBySiteIdAndLemma(siteId, lemmaE.getKey());
+                lemma = lemmaRepository.findBySiteIdAndLemma(siteId, lemmaE.getKey()).orElse(null);
+                assert lemma != null;
                 frequency = lemma.getFrequency() + 1;
             } else {
                 lemma = new Lemma(siteId, lemmaE.getKey(), 1);
