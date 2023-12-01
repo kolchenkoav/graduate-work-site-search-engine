@@ -4,7 +4,6 @@ import lombok.*;
 
 import javax.persistence.*;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
 
@@ -14,9 +13,8 @@ import java.util.Objects;
 @NoArgsConstructor
 @Entity
 
-//, indexes = @Index(name = "fn_index", columnList = "path")
-@Table(name = "page", schema = "search_engine")
-public class Page {
+@Table(name = "page", schema = "search_engine") //, indexes = @Index(columnList = "path")
+public class Page  {                            // implements Serializable
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Id
     @Column(name = "page_id")
@@ -44,7 +42,7 @@ public class Page {
     private SiteE siteE;
 
     @OneToMany(mappedBy = "pageId", cascade = CascadeType.ALL)
-    private List<Index> indices = new ArrayList<>();
+    private List<searchengine.model.Index> indices = new ArrayList<>();
 
     @Override
     public boolean equals(Object o) {

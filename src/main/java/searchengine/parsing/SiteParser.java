@@ -10,6 +10,8 @@ import org.springframework.stereotype.Component;
 import searchengine.model.SiteE;
 import searchengine.model.Status;
 
+import searchengine.repository.IndexRepository;
+import searchengine.repository.LemmaRepository;
 import searchengine.repository.PageRepository;
 import searchengine.repository.SiteRepository;
 import searchengine.services.IndexingServiceImpl;
@@ -28,6 +30,9 @@ import java.util.concurrent.TimeUnit;
 @Setter
 @RequiredArgsConstructor
 public class SiteParser {
+    private final ParseLemma parseLemma;
+//    private final LemmaRepository lemmaRepository;
+//    private final IndexRepository indexRepository;
     private final PageRepository pageRepository;
     private final SiteRepository siteRepository;
     private static ForkJoinPool pool;
@@ -50,7 +55,7 @@ public class SiteParser {
 
         pool = new ForkJoinPool(4);
 
-        parsedMap = new ParsePage(pageRepository);
+        parsedMap = new ParsePage(parseLemma, pageRepository);
         parsedMap.setUrl(url);
         parsedMap.setDomain(domain);
         parsedMap.setParent(null);

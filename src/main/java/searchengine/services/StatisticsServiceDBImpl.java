@@ -65,7 +65,11 @@ public class StatisticsServiceDBImpl implements StatisticsService {
             item.setPages(pagesCount);
             item.setLemmas(lemmasCount);
             item.setStatus(siteE.getStatus().toString());
-            item.setError(siteE.getLastError());
+            if (siteE.getLastError() == null) {
+                item.setError("");
+            } else {
+                item.setError(siteE.getLastError());
+            }
             item.setStatusTime(siteE.getStatusTime().getTime());
             total.setPages(total.getPages() + pagesCount);
             total.setLemmas(total.getLemmas() + lemmasCount);

@@ -59,7 +59,7 @@ public class ApiController {
 
     @GetMapping("/test")
     public ResponseEntity<?> test() {
-        parseLemma.parsing("armchair Ways way. tables table chair chairs armchairs. Повторное появление леопарда в Осетии позволяет предположить. Хлеба лошади");
+        //parseLemma.parsing("java armchair Ways way. Лошадей и лошадью tables table chair chairs armchairs. Повторное появление леопарда в Осетии позволяет предположить. java Хлеба лошади Java");
         return ResponseEntity.ok(123);
     }
 }

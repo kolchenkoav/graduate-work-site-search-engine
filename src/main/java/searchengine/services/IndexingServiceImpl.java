@@ -12,6 +12,7 @@ import searchengine.dto.indexing.IndexingErrorResponse;
 import searchengine.dto.indexing.IndexingResponse;
 import searchengine.model.SiteE;
 import searchengine.model.Status;
+import searchengine.parsing.ParseLemma;
 import searchengine.parsing.ParsePage;
 import searchengine.parsing.SiteParser;
 import searchengine.parsing.Utils;
@@ -33,6 +34,7 @@ import com.google.common.util.concurrent.ThreadFactoryBuilder;
 @Service
 @RequiredArgsConstructor
 public class IndexingServiceImpl implements IndexingService {
+    private final ParseLemma parseLemma;
     private final SiteParser siteParser;
     private final ParsePage parsePage;
     private final SiteList siteListFromConfig;
@@ -105,6 +107,7 @@ public class IndexingServiceImpl implements IndexingService {
     private void parsingOneSite(String url, String name, boolean isCreate) {
         isStopIndexing = false;
         SiteE siteE;
+        int siteId;
         if (isCreate) {
             siteE = new SiteE(Status.INDEXING, new Timestamp(System.currentTimeMillis()), url, name);
             log.info("Site '{}' is created...", name);
@@ -116,16 +119,17 @@ public class IndexingServiceImpl implements IndexingService {
             }
             siteE.setStatus(Status.INDEXING);
             log.info("Site {} is updated...", siteE.getName());
-            int siteId = siteE.getSiteId();
+            siteId = siteE.getSiteId();
             pageRepository.deleteBySiteId(siteId);
         }
         siteEList.add(siteE);
-        siteRepository.save(siteE);
+        siteE = siteRepository.save(siteE);
+        siteId = siteE.getSiteId();
         log.info("Parse => url: {} name: {}", url, name);
 
         // подготовка данных для
-        SiteParser siteParser = new SiteParser(pageRepository, siteRepository);
-        siteParser.setSiteId(siteE.getSiteId());
+        SiteParser siteParser = new SiteParser(parseLemma, pageRepository, siteRepository);
+        siteParser.setSiteId(siteId);
         siteParser.setUrl(url);
         siteParser.setDomain(Utils.getProtocolAndDomain(url));
 
@@ -205,7 +209,6 @@ public class IndexingServiceImpl implements IndexingService {
         }
         return response;
     }
-
 
     private boolean indexingPage(String url) {
         if (siteListFromConfig.getSites().stream().noneMatch(site -> site.getUrl().equals(url))) {

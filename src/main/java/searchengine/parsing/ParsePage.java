@@ -11,6 +11,7 @@ import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import searchengine.model.Page;
 import searchengine.repository.PageRepository;
@@ -28,6 +29,7 @@ import java.util.concurrent.RecursiveTask;
 @Setter
 @RequiredArgsConstructor
 public class ParsePage extends RecursiveTask<List<String>> {
+    private final ParseLemma parseLemma;
     private final PageRepository pageRepository;
     private int siteId;
     private String url;
@@ -66,7 +68,7 @@ public class ParsePage extends RecursiveTask<List<String>> {
                     .userAgent("Mozilla/5.0 (Windows; U; WindowsNT 5.1; en-US; rv1.8.1.6) YandexIndexingMachine")
                     .referrer("https://www.google.com")
                     .ignoreContentType(true)
-                    .timeout(5000)
+                    .timeout(7000)
                     .ignoreHttpErrors(true)
                     .execute();
             if (!response.contentType().startsWith("text/html;")) {
@@ -82,15 +84,15 @@ public class ParsePage extends RecursiveTask<List<String>> {
             return list;
         }
 
+        assert doc != null;
         String content = doc.body().text();
-        Page page = new Page();
-        page.setSiteId(siteId);
-        page.setCode(code);
-        page.setPath(url);
-        page.setContent(content);
-        pageRepository.save(page);
+
+        Page page = new Page(siteId, url, code, content);
+        page = pageRepository.save(page);
+        if (code == 200) {
+            parseLemma.parsing(content, siteId, page.getPageId());
+        }
         log.info("{} ", page.getPath());
-        //log.info("===> "+doc.body().text().substring(1, 100));
 
         Elements elements = doc.select("a[href~=^/?([\\w\\d/-]+)?]");
         for (Element link : elements) {
@@ -99,13 +101,10 @@ public class ParsePage extends RecursiveTask<List<String>> {
                 if (checkUrl.isEmpty() || checkUrl.contains("#") || checkUrl.contains(".jpg") || checkUrl.contains(".png")) {
                     continue;
                 }
-
                 if (!checkAddUrl(checkUrl)) {
-
-
                     list.add(checkUrl);
 
-                    ParsePage newParse = new ParsePage(pageRepository);
+                    ParsePage newParse = new ParsePage(parseLemma, pageRepository);
                     newParse.setUrl(checkUrl);
                     newParse.setParent(this);
                     newParse.setDomain(domain);
@@ -145,12 +144,4 @@ public class ParsePage extends RecursiveTask<List<String>> {
             list.addAll(item.join());
         }
     }
-
-//    @Override
-//    public String toString() {
-//        StringBuilder sb = new StringBuilder();
-//        sb.append("\t".repeat(this.level)).append(this.url).append("\n");
-//        this.links.forEach(e -> sb.append(e.toString()));
-//        return sb.toString();
-//    }
 }
