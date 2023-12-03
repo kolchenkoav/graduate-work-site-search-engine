@@ -44,7 +44,7 @@ public class IndexingServiceImpl implements IndexingService {
     private final DefaultController controller;
     private Object response;
     private ThreadPoolExecutor executor;
-    public static boolean isStopIndexing = false;
+    //public static boolean isStopIndexing = false;
 
     //  Метод запускает полную индексацию всех сайтов
     //  или полную переиндексацию, если они уже проиндексированы.
@@ -53,7 +53,7 @@ public class IndexingServiceImpl implements IndexingService {
     @Transactional
     @Override
     public Object startIndexing() {
-        isStopIndexing = false;
+        parsePage.setCancelledFromTask(false);
         if (indexing()) {
             IndexingResponse responseTrue = new IndexingResponse();
             responseTrue.setResult(true);
@@ -79,12 +79,12 @@ public class IndexingServiceImpl implements IndexingService {
         final ThreadFactory threadFactory = new ThreadFactoryBuilder()
                 .setNameFormat("Cайт: %d")
                 .build();
-        executor = (ThreadPoolExecutor) Executors.newFixedThreadPool(4, threadFactory);
+        executor = (ThreadPoolExecutor) Executors.newFixedThreadPool(3, threadFactory);
         executor.setMaximumPoolSize(Runtime.getRuntime().availableProcessors());
 
         siteListFromConfig.getSites().forEach(e -> {
             deleteByName(e.getName());
-            if (isStopIndexing) {
+            if (parsePage.isCancelledFromTask()) {
                 executor.shutdownNow();
             } else {
                 executor.execute(() -> parsingOneSite(e.getUrl(), e.getName(), true));
@@ -103,9 +103,8 @@ public class IndexingServiceImpl implements IndexingService {
         }
     }
 
-
     private void parsingOneSite(String url, String name, boolean isCreate) {
-        isStopIndexing = false;
+        parsePage.setCancelledFromTask(false);
         SiteE siteE;
         int siteId;
         if (isCreate) {
@@ -118,14 +117,14 @@ public class IndexingServiceImpl implements IndexingService {
                 return;
             }
             siteE.setStatus(Status.INDEXING);
-            log.info("Site {} is updated...", siteE.getName());
+            log.info("Site '{}' is updated...", siteE.getName());
             siteId = siteE.getSiteId();
             pageRepository.deleteBySiteId(siteId);
         }
         siteEList.add(siteE);
         siteE = siteRepository.save(siteE);
         siteId = siteE.getSiteId();
-        log.info("Parse => url: {} name: {}", url, name);
+        //log.info("Parse => url: {} name: {}", url, name);
 
         // подготовка данных для
         SiteParser siteParser = new SiteParser(parseLemma, pageRepository, siteRepository);
@@ -157,7 +156,7 @@ public class IndexingServiceImpl implements IndexingService {
 
 
     private boolean stopping() {
-        isStopIndexing = true;
+        parsePage.setCancelledFromTask(true);
         try {
             long size = siteEList.stream().filter(e -> e.getStatus() == Status.INDEXING).count();
             if (size == 0) {
@@ -228,5 +227,4 @@ public class IndexingServiceImpl implements IndexingService {
 
         return true;
     }
-
 }

@@ -29,6 +29,7 @@ import java.util.concurrent.RecursiveTask;
 @Setter
 @RequiredArgsConstructor
 public class ParsePage extends RecursiveTask<List<String>> {
+    private volatile boolean cancelledFromTask;
     private final ParseLemma parseLemma;
     private final PageRepository pageRepository;
     private int siteId;
@@ -46,21 +47,14 @@ public class ParsePage extends RecursiveTask<List<String>> {
         uniqueLinks.clear();
     }
 
-    private String getLang(String beginHtml) {
-        String result = "";
-        try {
-            int indexBegin = beginHtml.indexOf("lang=");
-            result = beginHtml.substring(indexBegin + 6, indexBegin + 8);
-        } catch (Exception e) {
-            log.warn(e.getMessage());
-        }
-        return result;
-    }
-
     @Override
     protected List<String> compute() {
         List<String> list = new ArrayList<>();
         List<ParsePage> tasks = new ArrayList<>();
+
+//        if (cancelledFromTask) {
+//            return list;
+//        }
 
         Document doc = null;
         try {
@@ -90,9 +84,10 @@ public class ParsePage extends RecursiveTask<List<String>> {
         Page page = new Page(siteId, url, code, content);
         page = pageRepository.save(page);
         if (code == 200) {
+            log.info("Получение лемм для страницы: {}", page.getPath());
             parseLemma.parsing(content, siteId, page.getPageId());
         }
-        log.info("{} ", page.getPath());
+        //log.info("{} ", page.getPath());
 
         Elements elements = doc.select("a[href~=^/?([\\w\\d/-]+)?]");
         for (Element link : elements) {

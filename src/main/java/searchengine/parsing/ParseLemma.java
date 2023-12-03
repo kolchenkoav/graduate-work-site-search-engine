@@ -24,15 +24,10 @@ public class ParseLemma {
         Map<String, Integer> mapLemmas = lemmaFinder.collectLemmas(text);
 
         for (Map.Entry<String, Integer> lemmaE: mapLemmas.entrySet()) {
-            // on duplicate key update frequency = lemma.frequency + 1
-//            if (siteId > 1) {
-//                System.out.println("===========>>>> "+siteId);
-//            }
-            Lemma lemma;
-            if (lemmaRepository.existsBySiteIdAndLemma(siteId, lemmaE.getKey())) {
-                lemma = lemmaRepository.findBySiteIdAndLemma(siteId, lemmaE.getKey()).orElse(null);
-                assert lemma != null;
+            Lemma lemma = lemmaRepository.findBySiteIdAndLemma(siteId, lemmaE.getKey()).orElse(null);
+            if (lemma != null) {
                 frequency = lemma.getFrequency() + 1;
+                lemma.setFrequency(frequency);
             } else {
                 lemma = new Lemma(siteId, lemmaE.getKey(), 1);
             }

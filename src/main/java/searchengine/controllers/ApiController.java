@@ -45,7 +45,7 @@ public class ApiController {
 
     @PostMapping("/indexPage")
     public ResponseEntity<?> indexPage(@RequestParam String url) {
-        log.info("*** url: " + url);
+        log.info("\n Индексация отдельного сайта  url: {}", url);
         return ResponseEntity.ok(indexingService.indexPage(url));
     }
 

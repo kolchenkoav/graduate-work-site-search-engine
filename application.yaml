@@ -4,8 +4,8 @@ indexing-settings:
       name: Quotes to Scrape
 #    - url: https://starper55plys.ru/
 #      name: Блог Старого Перца
-    - url: https://konstruktorysajtov.com/kak-sozdat-sajt-vizitky-samomy/
-      name: Как создать сайт-визитку самому
+    - url: https://konstruktorysajtov.com/
+      name: Лучшие платформы для сайтов
 
 server:
   port: 8080

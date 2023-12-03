@@ -31,8 +31,6 @@ import java.util.concurrent.TimeUnit;
 @RequiredArgsConstructor
 public class SiteParser {
     private final ParseLemma parseLemma;
-//    private final LemmaRepository lemmaRepository;
-//    private final IndexRepository indexRepository;
     private final PageRepository pageRepository;
     private final SiteRepository siteRepository;
     private static ForkJoinPool pool;
@@ -49,11 +47,7 @@ public class SiteParser {
     }
 
     public void getLinks() {
-        System.out.println();
-        System.out.println("Parsing URL: " + url);
-
-
-        pool = new ForkJoinPool(4);
+        pool = new ForkJoinPool(100);
 
         parsedMap = new ParsePage(parseLemma, pageRepository);
         parsedMap.setUrl(url);
@@ -72,11 +66,18 @@ public class SiteParser {
             } catch (InterruptedException e) {
                 //logger.error(ExceptionUtils.getStackTrace(e));
             }
-        } while (!parsedMap.isDone());
+        } while (!parsedMap.isDone() && !parsedMap.isCancelledFromTask());
 
-        pool.shutdown();
+        if (parsedMap.isCancelledFromTask()) {
+            pool.shutdownNow();
+            forceStop();
+            log.info("Отмена индексации... ");
+            //return;
+        } else {
+            pool.shutdown();
+        }
+
         List<String> results = parsedMap.join();
-
 
         SiteE siteE = siteRepository.findById(siteId).orElse(null);
         if (siteE == null) {
@@ -84,11 +85,13 @@ public class SiteParser {
             return;
         }
 
-        if (!IndexingServiceImpl.isStopIndexing) {
+        if (parsedMap.isCancelledFromTask()) {
+            siteE.setStatus(Status.FAILED);
+        } else {
             siteE.setStatus(Status.INDEXED);
-            siteE.setStatusTime(new Timestamp(System.currentTimeMillis()));
-            siteRepository.save(siteE);
         }
+        siteE.setStatusTime(new Timestamp(System.currentTimeMillis()));
+        siteRepository.save(siteE);
 
         System.out.println();
         if (!results.isEmpty()) {
