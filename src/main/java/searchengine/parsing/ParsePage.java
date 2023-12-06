@@ -1,132 +1,136 @@
 package searchengine.parsing;
 
-
 import lombok.Getter;
-import lombok.RequiredArgsConstructor;
 import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
-import org.jsoup.Connection;
 import org.jsoup.HttpStatusException;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
-import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Scope;
 import org.springframework.stereotype.Component;
 import searchengine.model.Page;
 import searchengine.repository.PageRepository;
 
 import java.io.IOException;
-import java.lang.invoke.WrongMethodTypeException;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.RecursiveTask;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
+
+import static searchengine.parsing.Utils.*;
+
 
 @Slf4j
-@Component
 @Getter
 @Setter
-@RequiredArgsConstructor
-public class ParsePage extends RecursiveTask<List<String>> {
-    private volatile boolean cancelledFromTask;
+@Component
+@Scope("prototype")
+public class ParsePage extends RecursiveTask<Set<String>> {
     private final ParseLemma parseLemma;
     private final PageRepository pageRepository;
+
+    public ParsePage(ParseLemma parseLemma, PageRepository pageRepository) {
+        this.parseLemma = parseLemma;
+        this.pageRepository = pageRepository;
+    }
+
     private int siteId;
     private String url;
     private String domain;
     private ParsePage parent;
-    private List<ParsePage> links = new ArrayList<>();
-    private int level;
-    int code = 200;
-    Connection.Response response = null;
+    private int code = 200;
+    private int countErrorPages = 0;
 
+    private AtomicBoolean cancelled = new AtomicBoolean(false);
     private static ConcurrentHashMap<String, ParsePage> uniqueLinks = new ConcurrentHashMap<>();
 
-    public void clearUniqueLinks() {
-        uniqueLinks.clear();
-    }
-
     @Override
-    protected List<String> compute() {
-        List<String> list = new ArrayList<>();
+    protected Set<String> compute() {
+        Set<String> listOfUrls = new HashSet<>();
         List<ParsePage> tasks = new ArrayList<>();
-
-//        if (cancelledFromTask) {
-//            return list;
-//        }
 
         Document doc = null;
         try {
-            response = Jsoup.connect(url)
-                    .userAgent("Mozilla/5.0 (Windows; U; WindowsNT 5.1; en-US; rv1.8.1.6) YandexIndexingMachine")
-                    .referrer("https://www.google.com")
-                    .ignoreContentType(true)
-                    .timeout(7000)
-                    .ignoreHttpErrors(true)
-                    .execute();
-            if (!response.contentType().startsWith("text/html;")) {
-                throw new WrongMethodTypeException("wrong format");
-            }
-            code = response.statusCode();
-            Thread.sleep((int) (Math.random() * 50 + 100));
-            doc = response.parse();
-
+            doc = Jsoup.connect(url)
+                    .userAgent("Mozilla/5.0 (Windows; U; WindowsNT 5.1; en-US; rv1.8.1.6) Gecko/20070725 Firefox/2.0.0.6")
+                    .referrer("http://www.google.com")
+                    .get();
+            TimeUnit.MILLISECONDS.sleep((int) (Math.random() * 50 + 100));
         } catch (HttpStatusException e) {
-
-        } catch (IOException | InterruptedException e) {
-            return list;
+            code = e.getStatusCode();
+        } catch (IOException | InterruptedException ex) {
+            return listOfUrls;
         }
 
-        assert doc != null;
-        String content = doc.body().text();
-
-        Page page = new Page(siteId, url, code, content);
-        page = pageRepository.save(page);
-        if (code == 200) {
-            log.info("Получение лемм для страницы: {}", page.getPath());
-            parseLemma.parsing(content, siteId, page.getPageId());
+        if (doc == null) {
+            return listOfUrls;
         }
-        //log.info("{} ", page.getPath());
+        if (uniqueLinks.containsKey(url)) {
+            savePage(doc);
+        }
 
         Elements elements = doc.select("a[href~=^/?([\\w\\d/-]+)?]");
         for (Element link : elements) {
-            String checkUrl = link.attr("abs:href").replace("//www.", "//");
-            if (checkUrl.startsWith(domain)) {
-                if (checkUrl.isEmpty() || checkUrl.contains("#") || checkUrl.contains(".jpg") || checkUrl.contains(".png")) {
-                    continue;
-                }
-                if (!checkAddUrl(checkUrl)) {
-                    list.add(checkUrl);
+            String checkingUrl = link.attr("abs:href").replace("//www.", "//");
+            if (checkUrl(checkingUrl)) {
+                listOfUrls.add(checkingUrl);
 
-                    ParsePage newParse = new ParsePage(parseLemma, pageRepository);
-                    newParse.setUrl(checkUrl);
-                    newParse.setParent(this);
-                    newParse.setDomain(domain);
-                    newParse.setLinks(new ArrayList<>());
-                    newParse.setLevel(level + 1);
-                    newParse.setSiteId(siteId);
+                ParsePage newParsePage = prepareNewPage(checkingUrl);
 
-                    newParse.fork();
-                    tasks.add(newParse);
-                    links.add(newParse);
-                } else {
-                    //log.warn(String.valueOf(uniqueLinks.size()));
-                }
+                newParsePage.fork();
+                tasks.add(newParsePage);
             }
         }
 
-        try {
-            addResultsFromTasks(list, tasks);
-        } catch (RuntimeException e) {
-            //logger.warn(e);
-        }
-        tasks.clear();
-        //uniqueLinks = null;
-        return list;
+        tasks.forEach((task) -> listOfUrls.addAll(task.join()));
+        return listOfUrls;
     }
 
-    private boolean checkAddUrl(String url) {
+    private void savePage(Document doc) {
+        String content = doc.body().text();
+        Page page = new Page(siteId, url, code, content);
+        page = pageRepository.save(page);
+
+        if (code == 200) {
+            System.out.print("Количество найденных страниц: " + ANSI_YELLOW + uniqueLinks.size() +
+                    ANSI_RESET + " Страницы с ошибками: " + ANSI_RED +  countErrorPages + ANSI_RESET+"\r");
+            //TODO parseLemma.parsing(content, siteId, page.getPageId());
+            //parseLemma.parsing(content, siteId, page.getPageId());
+        } else {
+            countErrorPages++;
+            log.warn("url: {} {}", url, code);
+        }
+    }
+
+    private ParsePage prepareNewPage(String checkingUrl) {
+        ParsePage newParse = new ParsePage(parseLemma, pageRepository);
+        newParse.setUrl(checkingUrl);
+        newParse.setParent(this);
+        newParse.setDomain(domain);
+        newParse.setSiteId(siteId);
+        return newParse;
+    }
+
+    private boolean checkUrl(String checkingUrl) {
+        if (checkingUrl.startsWith(domain)) {
+            if (checkingUrl.isEmpty() ||
+                    checkingUrl.contains("#") ||
+                    checkingUrl.contains(".jpg") ||
+                    checkingUrl.contains(".png")) {
+                return false;
+            }
+            return !isExistUrlInUniqueLinks(checkingUrl);
+        }
+        return false;
+    }
+
+    private boolean isExistUrlInUniqueLinks(String url) {
         boolean isExist = uniqueLinks.containsKey(url);
         if (!isExist) {
             uniqueLinks.put(url, this);
@@ -134,9 +138,9 @@ public class ParsePage extends RecursiveTask<List<String>> {
         return isExist;
     }
 
-    private void addResultsFromTasks(List<String> list, List<ParsePage> tasks) {
-        for (ParsePage item : tasks) {
-            list.addAll(item.join());
-        }
+    public void clearUniqueLinks() {
+        uniqueLinks.clear();
     }
 }
+
+

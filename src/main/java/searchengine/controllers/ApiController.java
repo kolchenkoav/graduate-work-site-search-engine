@@ -5,16 +5,14 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import searchengine.dto.statistics.StatisticsResponse;
-import searchengine.model.SiteE;
-import searchengine.model.Status;
+
 import searchengine.parsing.ParseLemma;
-import searchengine.repository.SiteRepository;
+
 import searchengine.services.IndexingService;
 import searchengine.services.SearchService;
 import searchengine.services.StatisticsService;
 
-import java.sql.Timestamp;
-import java.time.Instant;
+
 
 @Slf4j
 @RestController
@@ -62,4 +60,5 @@ public class ApiController {
         //parseLemma.parsing("java armchair Ways way. Лошадей и лошадью tables table chair chairs armchairs. Повторное появление леопарда в Осетии позволяет предположить. java Хлеба лошади Java");
         return ResponseEntity.ok(123);
     }
+
 }

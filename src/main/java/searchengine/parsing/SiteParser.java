@@ -1,7 +1,5 @@
 package searchengine.parsing;
 
-
-import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.Setter;
@@ -9,20 +7,11 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import searchengine.model.SiteE;
 import searchengine.model.Status;
-
-import searchengine.repository.IndexRepository;
-import searchengine.repository.LemmaRepository;
 import searchengine.repository.PageRepository;
 import searchengine.repository.SiteRepository;
-import searchengine.services.IndexingServiceImpl;
 
-import java.sql.Timestamp;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.concurrent.ConcurrentLinkedQueue;
+import java.util.Set;
 import java.util.concurrent.ForkJoinPool;
-import java.util.concurrent.ThreadFactory;
-import java.util.concurrent.TimeUnit;
 
 @Slf4j
 @Component
@@ -30,15 +19,20 @@ import java.util.concurrent.TimeUnit;
 @Setter
 @RequiredArgsConstructor
 public class SiteParser {
-    private final ParseLemma parseLemma;
     private final PageRepository pageRepository;
     private final SiteRepository siteRepository;
-    private static ForkJoinPool pool;
+    private final ParseLemma parseLemma;                // = new ParseLemma();
 
     private int siteId;
     private String domain;
     private String url;
-    private ParsePage parsedMap;
+    private ParsePage parsePage;
+
+    public void initSiteParser(int siteId, String domain, String url) {
+        this.siteId = siteId;
+        this.domain = domain;
+        this.url = url;
+    }
 
     public static void forceStop() {
         if (pool != null) {
@@ -46,57 +40,52 @@ public class SiteParser {
         }
     }
 
+    private static final int PARALLELISM = 120;
+    private static ForkJoinPool pool;
+
     public void getLinks() {
-        pool = new ForkJoinPool(100);
+        System.out.println();
+        System.out.println(url);
+        pool = new ForkJoinPool(PARALLELISM);
 
-        parsedMap = new ParsePage(parseLemma, pageRepository);
-        parsedMap.setUrl(url);
-        parsedMap.setDomain(domain);
-        parsedMap.setParent(null);
-        parsedMap.setLinks(new ArrayList<>());
-        parsedMap.setLevel(0);
-        parsedMap.setSiteId(siteId);
+        parsePage = preparePage();
+        pool.execute(parsePage);
 
-        pool.execute(parsedMap);
-        do {
-//            System.out.printf("\rActive threads: %d     Task count: %d    Steal count: %d     Run count: %d",
-//                    pool.getActiveThreadCount(), pool.getQueuedTaskCount(), pool.getStealCount(), pool.getRunningThreadCount());
-            try {
-                TimeUnit.MILLISECONDS.sleep(100);
-            } catch (InterruptedException e) {
-                //logger.error(ExceptionUtils.getStackTrace(e));
-            }
-        } while (!parsedMap.isDone() && !parsedMap.isCancelledFromTask());
+        while (!parsePage.isDone() && !parsePage.getCancelled().get()) {
+        }
 
-        if (parsedMap.isCancelledFromTask()) {
+        if (parsePage.getCancelled().get()) {
             pool.shutdownNow();
             forceStop();
             log.info("Отмена индексации... ");
-            //return;
         } else {
             pool.shutdown();
         }
+        Set<String> result = parsePage.join();
 
-        List<String> results = parsedMap.join();
+        saveSite();
+        parsePage = null;
+    }
 
+    private ParsePage preparePage() {
+        parsePage = new ParsePage(parseLemma, pageRepository);
+
+        parsePage.setUrl(url);
+        parsePage.setDomain(domain);
+        parsePage.setParent(null);
+        parsePage.setSiteId(siteId);
+        return parsePage;
+    }
+
+    private void saveSite() {
         SiteE siteE = siteRepository.findById(siteId).orElse(null);
         if (siteE == null) {
             log.warn("Сайт с ID: {} не найден", siteE);
             return;
         }
-
-        if (parsedMap.isCancelledFromTask()) {
-            siteE.setStatus(Status.FAILED);
-        } else {
-            siteE.setStatus(Status.INDEXED);
-        }
-        siteE.setStatusTime(new Timestamp(System.currentTimeMillis()));
+        siteE.setStatus(parsePage.isCancelled() || parsePage.getCancelled().get() ? Status.FAILED : Status.INDEXED);
+        siteE.setStatusTime(Utils.setNow());
         siteRepository.save(siteE);
-
-        System.out.println();
-        if (!results.isEmpty()) {
-            System.out.printf("%s: %d links found.\n", results.get(0), results.size());
-        }
-        parsedMap = null;
+        log.info("Save: {}", siteE.getName());
     }
 }

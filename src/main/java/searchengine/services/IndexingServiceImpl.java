@@ -1,6 +1,5 @@
 package searchengine.services;
 
-import lombok.NoArgsConstructor;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -27,6 +26,7 @@ import java.util.Optional;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadFactory;
 import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 
@@ -53,7 +53,7 @@ public class IndexingServiceImpl implements IndexingService {
     @Transactional
     @Override
     public Object startIndexing() {
-        parsePage.setCancelledFromTask(false);
+        parsePage.setCancelled(new AtomicBoolean(false));
         if (indexing()) {
             IndexingResponse responseTrue = new IndexingResponse();
             responseTrue.setResult(true);
@@ -79,12 +79,12 @@ public class IndexingServiceImpl implements IndexingService {
         final ThreadFactory threadFactory = new ThreadFactoryBuilder()
                 .setNameFormat("Cайт: %d")
                 .build();
-        executor = (ThreadPoolExecutor) Executors.newFixedThreadPool(3, threadFactory);
+        executor = (ThreadPoolExecutor) Executors.newFixedThreadPool(1, threadFactory);
         executor.setMaximumPoolSize(Runtime.getRuntime().availableProcessors());
 
         siteListFromConfig.getSites().forEach(e -> {
             deleteByName(e.getName());
-            if (parsePage.isCancelledFromTask()) {
+            if (parsePage.isCancelled()) {
                 executor.shutdownNow();
             } else {
                 executor.execute(() -> parsingOneSite(e.getUrl(), e.getName(), true));
@@ -102,13 +102,13 @@ public class IndexingServiceImpl implements IndexingService {
             siteRepository.deleteAllByName(name);
         }
     }
-
-    private void parsingOneSite(String url, String name, boolean isCreate) {
-        parsePage.setCancelledFromTask(false);
+    @Transactional
+    void parsingOneSite(String url, String name, boolean isCreate) {
+        parsePage.setCancelled(new AtomicBoolean(false));
         SiteE siteE;
         int siteId;
         if (isCreate) {
-            siteE = new SiteE(Status.INDEXING, new Timestamp(System.currentTimeMillis()), url, name);
+            siteE = new SiteE(Status.INDEXING, Utils.setNow(), url, name);
             log.info("Site '{}' is created...", name);
         } else {
             siteE = siteRepository.findByName(name).orElse(null);
@@ -121,16 +121,14 @@ public class IndexingServiceImpl implements IndexingService {
             siteId = siteE.getSiteId();
             pageRepository.deleteBySiteId(siteId);
         }
-        siteEList.add(siteE);
+
         siteE = siteRepository.save(siteE);
         siteId = siteE.getSiteId();
+        siteEList.add(siteE);
         //log.info("Parse => url: {} name: {}", url, name);
 
         // подготовка данных для
-        SiteParser siteParser = new SiteParser(parseLemma, pageRepository, siteRepository);
-        siteParser.setSiteId(siteId);
-        siteParser.setUrl(url);
-        siteParser.setDomain(Utils.getProtocolAndDomain(url));
+        siteParser.initSiteParser(siteId, Utils.getProtocolAndDomain(url), url);
 
         // вызов парсинга сайтов
         siteParser.getLinks();
@@ -154,9 +152,8 @@ public class IndexingServiceImpl implements IndexingService {
         return response;
     }
 
-
     private boolean stopping() {
-        parsePage.setCancelledFromTask(true);
+        parsePage.setCancelled(new AtomicBoolean(true));
         try {
             long size = siteEList.stream().filter(e -> e.getStatus() == Status.INDEXING).count();
             if (size == 0) {
@@ -193,7 +190,7 @@ public class IndexingServiceImpl implements IndexingService {
     //  метод должен вернуть соответствующую ошибку.
     //
     // url — адрес страницы, которую нужно переиндексировать.
-    @Transactional
+    //@Transactional
     @Override
     public Object indexPage(String url) {
         if (indexingPage(url)) {
@@ -218,7 +215,7 @@ public class IndexingServiceImpl implements IndexingService {
                 .findFirst()
                 .orElse(null);
         if (site == null) {
-            log.warn("");
+            log.warn("site == null");
             return false;
         }
         String name = site.getName();
