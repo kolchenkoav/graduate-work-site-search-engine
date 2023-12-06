@@ -1,4 +1,4 @@
-package searchengine.parsing;
+package searchengine.parsing.siteMapping;
 
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
@@ -7,6 +7,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 import searchengine.model.SiteE;
 import searchengine.model.Status;
+import searchengine.parsing.ParseLemma;
 import searchengine.repository.PageRepository;
 import searchengine.repository.SiteRepository;
 

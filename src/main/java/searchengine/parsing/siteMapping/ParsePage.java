@@ -1,4 +1,4 @@
-package searchengine.parsing;
+package searchengine.parsing.siteMapping;
 
 import lombok.Getter;
 import lombok.Setter;
@@ -11,6 +11,7 @@ import org.jsoup.select.Elements;
 import org.springframework.context.annotation.Scope;
 import org.springframework.stereotype.Component;
 import searchengine.model.Page;
+import searchengine.parsing.ParseLemma;
 import searchengine.repository.PageRepository;
 
 import java.io.IOException;
@@ -23,7 +24,7 @@ import java.util.concurrent.RecursiveTask;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-import static searchengine.parsing.Utils.*;
+import static searchengine.parsing.siteMapping.Utils.*;
 
 
 @Slf4j

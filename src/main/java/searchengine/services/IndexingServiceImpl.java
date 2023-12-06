@@ -12,9 +12,10 @@ import searchengine.dto.indexing.IndexingResponse;
 import searchengine.model.SiteE;
 import searchengine.model.Status;
 import searchengine.parsing.ParseLemma;
-import searchengine.parsing.ParsePage;
-import searchengine.parsing.SiteParser;
-import searchengine.parsing.Utils;
+
+import searchengine.parsing.siteMapping.ParsePage;
+import searchengine.parsing.siteMapping.SiteParser;
+import searchengine.parsing.siteMapping.Utils;
 import searchengine.repository.PageRepository;
 import searchengine.repository.SiteRepository;
 
