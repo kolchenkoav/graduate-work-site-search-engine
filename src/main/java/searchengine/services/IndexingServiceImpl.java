@@ -190,7 +190,7 @@ public class IndexingServiceImpl implements IndexingService {
     //  метод должен вернуть соответствующую ошибку.
     //
     // url — адрес страницы, которую нужно переиндексировать.
-    //@Transactional
+    @Transactional
     @Override
     public Object indexPage(String url) {
         if (indexingPage(url)) {
