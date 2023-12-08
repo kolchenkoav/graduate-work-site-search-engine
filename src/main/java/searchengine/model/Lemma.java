@@ -1,13 +1,9 @@
 package searchengine.model;
 
 import lombok.*;
-import org.hibernate.annotations.OnDelete;
-import org.hibernate.annotations.OnDeleteAction;
-import org.hibernate.annotations.SQLInsert;
 
 import javax.persistence.*;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.List;
 import java.util.Objects;
 
@@ -36,12 +32,12 @@ public class Lemma {
     @Column(name = "frequency")
     private int frequency;
 
-    @OneToMany(mappedBy = "lemmaId", cascade = CascadeType.ALL)
-    private List<Index> indices = new ArrayList<>();
+    @OneToMany(mappedBy = "lemmaByLemmaId", cascade = CascadeType.ALL)
+    private List<IndexE> indexEByLemmaId = new ArrayList<>();
 
     @ManyToOne
     @JoinColumn(name = "site_id", insertable = false, updatable = false) //, insertable = false, updatable = false
-    private SiteE siteE;
+    private SiteE siteEBySiteId;
 
     @Override
     public boolean equals(Object o) {

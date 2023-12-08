@@ -44,12 +44,11 @@ public class SiteE {
     @Column(columnDefinition = "VARCHAR(255)")
     private String name;
 
-    @OneToMany(mappedBy = "siteId", cascade = CascadeType.ALL)
-    private List<Lemma> lemmas = new ArrayList<>();
+    @OneToMany(mappedBy = "siteEBySiteId", cascade = CascadeType.ALL)
+    private List<Lemma> lemmaBySiteId = new ArrayList<>();
 
-
-    @OneToMany(mappedBy = "siteId", cascade = CascadeType.ALL)
-    private List<Page> pages = new ArrayList<>();
+    @OneToMany(mappedBy = "siteEBySiteId", cascade = CascadeType.ALL)
+    private List<Page> pageBySiteId = new ArrayList<>();
 
     @Override
     public boolean equals(Object o) {

@@ -10,8 +10,8 @@ import java.util.Objects;
 @RequiredArgsConstructor
 @NoArgsConstructor
 @Entity
-@Table(name = "index_s", schema = "search_engine")
-public class Index {
+@Table(name = "index_e", schema = "search_engine")
+public class IndexE {
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Id
     @Column(name = "index_id", nullable = false)
@@ -31,18 +31,18 @@ public class Index {
 
     @ManyToOne
     @JoinColumn(name = "page_id", insertable = false, updatable = false)  //, insertable = false, updatable = false
-    private Page page;
+    private Page pageByPageId;
 
     @ManyToOne
     @JoinColumn(name = "lemma_id", insertable = false, updatable = false) //, insertable = false, updatable = false
-    private Lemma lemma;
+    private Lemma lemmaByLemmaId;
 
     @Override
     public boolean equals(Object o) {
         if (this == o) return true;
         if (o == null || getClass() != o.getClass()) return false;
-        Index index = (Index) o;
-        return indexId == index.indexId && pageId == index.pageId && lemmaId == index.lemmaId && Double.compare(index.rank, rank) == 0;
+        IndexE indexE = (IndexE) o;
+        return indexId == indexE.indexId && pageId == indexE.pageId && lemmaId == indexE.lemmaId && Double.compare(indexE.rank, rank) == 0;
     }
 
     @Override

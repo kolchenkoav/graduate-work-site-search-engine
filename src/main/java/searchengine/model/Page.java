@@ -12,8 +12,7 @@ import java.util.Objects;
 @RequiredArgsConstructor
 @NoArgsConstructor
 @Entity
-
-@Table(name = "page", schema = "search_engine") //, indexes = @Index(columnList = "path")
+@Table(name = "page", schema = "search_engine", indexes = @Index(columnList = "path"))
 public class Page  {                            // implements Serializable
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Id
@@ -25,7 +24,8 @@ public class Page  {                            // implements Serializable
     private int siteId;
 
     @NonNull
-    @Column(columnDefinition = "TEXT")
+    @Basic(optional = false)
+    @Column(name = "path", length =255)
     private String path;
 
     @NonNull
@@ -36,13 +36,16 @@ public class Page  {                            // implements Serializable
     @Column(columnDefinition = "MEDIUMTEXT")
     private String content;
 
+    @NonNull
+    @Column(name = "title", length = 255)
+    private String title;
 
     @ManyToOne
     @JoinColumn(name = "site_id", insertable = false, updatable = false)   //
-    private SiteE siteE;
+    private SiteE siteEBySiteId;
 
-    @OneToMany(mappedBy = "pageId", cascade = CascadeType.ALL)
-    private List<searchengine.model.Index> indices = new ArrayList<>();
+    @OneToMany(mappedBy = "pageByPageId", cascade = CascadeType.ALL)
+    private List<IndexE> IndexEByPageId = new ArrayList<>();
 
     @Override
     public boolean equals(Object o) {
@@ -65,9 +68,7 @@ public class Page  {                            // implements Serializable
                 ", siteId=" + siteId +
                 ", path='" + path + '\'' +
                 ", code=" + code +
-                ", content='" + content + '\'' +
-                ", siteE=" + siteE +
-                ", indices=" + indices +
+                ", content(trim by 100)='" + content.substring(0, 100) + '\'' +
                 '}';
     }
 }

@@ -1,12 +1,12 @@
 indexing-settings:
   sites:
-    - url: https://quotes.toscrape.com/
+    - url: https://quotes.toscrape.com
       name: Quotes to Scrape
-#    - url: https://starper55plys.ru/
+#    - url: https://starper55plys.ru
 #      name: Блог Старого Перца
-    - url: https://konstruktorysajtov.com/
-      name: Лучшие платформы для сайтов
-#    - url: https://jsoup.org/cookbook/
+#    - url: https://konstruktorysajtov.com
+#      name: Лучшие платформы для сайтов
+#    - url: https://jsoup.org/cookbook
 #      name: Cookbook jsoup Java HTML parser
 
 server:

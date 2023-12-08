@@ -6,10 +6,7 @@ import org.apache.lucene.morphology.russian.RussianLuceneMorphology;
 
 
 import java.io.IOException;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Locale;
-import java.util.Map;
+import java.util.*;
 
 
 public class LemmaFinder {
@@ -37,6 +34,7 @@ public class LemmaFinder {
     private LemmaFinder() {
         throw new IllegalArgumentException("Disallow construct");
     }
+
 
     /**
      * Метод разделяет текст на слова, находит все леммы и считает их количество.
@@ -86,6 +84,36 @@ public class LemmaFinder {
             lemmas.put(i, normalWord);
         }
         return lemmas;
+    }
+
+    /**
+     * Метод разделяет текст на слова, находит все леммы и считает их количество.
+     *
+     * @param text текст из которого будут выбираться леммы
+     * @return ключ является леммой, а значение количеством найденных лемм
+     */
+    public List<String> getLemmaList(String text) {
+        String[] words = splitWords(text, true);
+
+        List<String> lemmas = new ArrayList<>();
+        int i = 0;
+        for (String word : words) {
+            i++;
+            String normalWord = getNormalWord(word);
+            if (normalWord == null) continue;
+            lemmas.add(normalWord);
+        }
+        return lemmas;
+    }
+
+    /**
+     * Метод возвращает лемму
+     *
+     * @param word слово
+     * @return лемма
+     */
+    public String getLemma(String word) {
+        return getNormalWord(word);
     }
 
     private String getNormalWord(String word) {

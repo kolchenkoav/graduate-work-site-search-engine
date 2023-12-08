@@ -2,9 +2,10 @@ package searchengine.services;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.openjdk.jmh.annotations.*;
 import org.springframework.stereotype.Service;
 
-
+import searchengine.aop.Loggable;
 import searchengine.config.Messages;
 import searchengine.config.Site;
 import searchengine.config.SiteList;
@@ -17,8 +18,8 @@ import searchengine.repository.LemmaRepository;
 import searchengine.repository.SiteRepository;
 
 import java.util.*;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
+import java.util.concurrent.TimeUnit;
+
 
 @Slf4j
 @Service
@@ -30,6 +31,8 @@ public class SearchServiceImpl implements SearchService {
 
     private final SiteList sites;
     private String wordSearch;
+    private LemmaFinder lemmaFinder = LemmaFinder.getInstance();
+    String content = null;
 
     //====================================================================================================
     //  Метод осуществляет поиск страниц по переданному поисковому запросу (параметр query).
@@ -55,19 +58,25 @@ public class SearchServiceImpl implements SearchService {
     //  limit — количество результатов, которое необходимо вывести
     //      (параметр необязательный; если не установлен, то значение по умолчанию равно 20).
     @Override
+    @Loggable
     public Object search(String query, String site, int offset, int limit) {
 
-        wordSearch = query;
-        String wordStartsWith = wordSearch.substring(0, (wordSearch.length()/2)+1).toLowerCase(Locale.ROOT);
-        log.info("wordSearch: {}", wordSearch);
-        //mock===================================================================
+//        System.out.println(lemmaFinder.getLemma("покрасил"));
+//        System.out.println(lemmaFinder.getLemma("прошкурил"));
+//        System.out.println(lemmaFinder.getLemma("иметь"));
+//        System.out.println(lemmaFinder.getLemma("поиметь"));
+//        System.out.println(lemmaFinder.getLemma("заиметь"));
+
         Object response1;
-        String content = getContentFrom();
-        List<String> list = Arrays.stream(content.split(" "))
-                .filter(f->f.toLowerCase(Locale.ROOT).startsWith(wordStartsWith))
-                .filter(f -> getOneLemma(f, wordSearch))
-                .findFirst().stream().toList();
-        log.info("list.size: {}", list.size());
+
+        List<String> listW =  lemmaFinder.getLemmaList("geese was been ");
+        listW.forEach(System.out::println);
+
+        wordSearch = query;
+
+        //mock===================================================================
+
+        List<String> list = getList();
 
         if (list.size() > 0) {
             String s = list.get(list.size() - 1);
@@ -235,6 +244,19 @@ public class SearchServiceImpl implements SearchService {
         */
     }
 
+    private List<String> getList() {
+        String wordStartsWith = wordSearch.substring(0, (wordSearch.length()/2)+1).toLowerCase(Locale.ROOT);
+        log.info("wordSearch: {}", wordSearch);
+
+        content = getContentFrom();
+        List<String> list = Arrays.stream(content.split(" "))
+                .filter(f->f.toLowerCase(Locale.ROOT).startsWith(wordStartsWith))
+                .filter(f -> getOneLemma(f, wordSearch))
+                .findFirst().stream().toList();
+        log.info("list.size: {}", list.size());
+        return list;
+    }
+
     private String getSnippet(String content, String s) {
         int index = content.indexOf(s);
         int beginIndex;
@@ -248,8 +270,7 @@ public class SearchServiceImpl implements SearchService {
 
     private boolean getOneLemma(String f, String wordSearch) {
         boolean bool;
-        LemmaFinder lemmaFinder = LemmaFinder.getInstance();
-        assert lemmaFinder != null;
+
         Map<String, Integer> lemma1 = lemmaFinder.collectLemmas(f);
         Map<String, Integer> lemma2 = lemmaFinder.collectLemmas(wordSearch);
         String s1 = lemma1.keySet().toString();

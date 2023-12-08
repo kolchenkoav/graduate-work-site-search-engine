@@ -95,14 +95,15 @@ public class ParsePage extends RecursiveTask<Set<String>> {
 
     private void savePage(Document doc) {
         String content = doc.body().text();
-        Page page = new Page(siteId, url, code, content);
+        String title = doc.title();
+        Page page = new Page(siteId, url.substring(domain.length(), url.length()), code, content, title);
         page = pageRepository.save(page);
 
         if (code == 200) {
             System.out.print("Количество найденных страниц: " + ANSI_YELLOW + uniqueLinks.size() +
                     ANSI_RESET + " Страницы с ошибками: " + ANSI_RED +  countErrorPages + ANSI_RESET+"\r");
             //TODO parseLemma.parsing(content, siteId, page.getPageId());
-            //parseLemma.parsing(content, siteId, page.getPageId());
+            parseLemma.parsing(content, siteId, page.getPageId());
         } else {
             countErrorPages++;
             log.warn("url: {} {}", url, code);
