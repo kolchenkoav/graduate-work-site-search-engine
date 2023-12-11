@@ -1,6 +1,7 @@
 package searchengine.model;
 
 import lombok.*;
+import org.hibernate.annotations.SQLInsert;
 
 import javax.persistence.*;
 import java.util.ArrayList;
@@ -13,7 +14,7 @@ import java.util.Objects;
 @NoArgsConstructor
 @Entity
 @Table(name = "lemma", schema = "search_engine")
-//@SQLInsert(sql = "insert into search_engine.lemma(site_id, lemma, frequency) values (?, ?, ?) on duplicate key update frequency = lemma.frequency + 1")
+@SQLInsert(sql = "insert into search_engine.lemma(site_id, lemma, frequency) values (?, ?, ?) on duplicate key update frequency = lemma.frequency + 1")
 public class Lemma {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

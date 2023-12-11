@@ -97,17 +97,23 @@ public class ParsePage extends RecursiveTask<Set<String>> {
         String content = doc.body().text();
         String title = doc.title();
         Page page = new Page(siteId, url.substring(domain.length(), url.length()), code, content, title);
-        page = pageRepository.save(page);
+        pageRepository.save(page);
 
         if (code == 200) {
-            System.out.print("Количество найденных страниц: " + ANSI_YELLOW + uniqueLinks.size() +
-                    ANSI_RESET + " Страницы с ошибками: " + ANSI_RED +  countErrorPages + ANSI_RESET+"\r");
-            //TODO parseLemma.parsing(content, siteId, page.getPageId());
-            parseLemma.parsing(content, siteId, page.getPageId());
+            printMessageAboutPages();
         } else {
             countErrorPages++;
             log.warn("url: {} {}", url, code);
         }
+    }
+
+    private void printMessageAboutPages() {
+        StringBuilder builder = new StringBuilder();
+        builder.append("Number of pages found: ").append(ANSI_BLUE).append(uniqueLinks.size()).append(ANSI_RESET);
+        if (countErrorPages > 0) {
+            builder.append(" Pages with errors ").append(ANSI_RED).append(countErrorPages).append(ANSI_RESET);
+        }
+        System.out.print(builder+"\r");
     }
 
     private ParsePage prepareNewPage(String checkingUrl) {

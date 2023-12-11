@@ -1,55 +1,82 @@
 package searchengine.parsing;
 
+import lombok.Getter;
 import lombok.RequiredArgsConstructor;
+import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.annotation.Scope;
 import org.springframework.stereotype.Component;
-import searchengine.aop.Loggable;
+
+import org.springframework.transaction.annotation.Transactional;
 import searchengine.lemma.LemmaFinder;
 import searchengine.model.*;
 import searchengine.repository.IndexRepository;
 import searchengine.repository.LemmaRepository;
 
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
+
+import static searchengine.parsing.siteMapping.Utils.*;
+import static searchengine.parsing.siteMapping.Utils.ANSI_RESET;
 
 @Slf4j
 @Component
 @RequiredArgsConstructor
+@Getter
+@Setter
+//@Transactional
+//@Scope("prototype")
 public class ParseLemma {
     private final LemmaRepository lemmaRepository;
     private final IndexRepository indexRepository;
+    private int beginPos;
+    private int endPos;
+    private int currentPos;
 
-    @Loggable
-    public void parsing(String text, int siteId, int pageId) {
-        int frequency = 0;
-        LemmaFinder lemmaFinder = LemmaFinder.getInstance();
-        if (lemmaFinder == null) {
-            log.warn("lemmaFinder is null");
-            return;
+    //@Loggable
+    //@Transactional
+    public void parsing(Page page) {
+
+        String content = page.getContent();
+        int siteId = page.getSiteId();
+        int pageId = page.getPageId();
+        try {
+            LemmaFinder lemmaFinder = LemmaFinder.getInstance();
+            Map<String, Integer> mapLemmas = lemmaFinder.collectLemmas(content);
+            Map<Lemma, Integer> mapLemmasForAdd = new HashMap<>();
+            mapLemmas.entrySet().forEach(lemma -> mapLemmasForAdd.put(parseOneLemma(siteId, lemma.getKey()), lemma.getValue()));
+            lemmaRepository.saveAll(mapLemmasForAdd.keySet());
+
+            List<IndexE> listIndexForAdd = new ArrayList<>();
+            mapLemmasForAdd.entrySet().forEach(value -> listIndexForAdd.add(new IndexE(pageId, value.getKey().getLemmaId(), value.getValue())));
+            indexRepository.saveAll(listIndexForAdd);
+            printMessageAboutProgress(siteId, pageId, mapLemmasForAdd.size(), page.getPath());
+
+
+        } catch (Exception e) {
+            log.error("Ошибка parsing lemmas: {} siteId: {} pageId: {}", content.substring(0, 50) + "...", siteId, pageId);
         }
+    }
 
-        Map<String, Integer> mapLemmas = lemmaFinder.collectLemmas(text);
-        System.out.println("mapLemmas.size(): " + mapLemmas.size());
+    private void printMessageAboutProgress(int siteId, int pageId, int countOfLemmas, String url) {
+        StringBuilder builder = new StringBuilder();
+        builder.append("Writing lemmas and indices: ").append(ANSI_GREEN).append((currentPos - beginPos) * 100 / (endPos - beginPos)).append("% ");
+        builder.append(ANSI_RESET).append(" siteId:").append(ANSI_CYAN).append(siteId).append(ANSI_RESET);
+        builder.append(" pageId: ").append(ANSI_CYAN).append(pageId).append(ANSI_RESET);
+        builder.append(" number of lemmas: ").append(ANSI_CYAN).append(countOfLemmas).append(ANSI_RESET);
+        builder.append(" url: ").append(ANSI_BLUE).append(url).append(ANSI_RESET);
+        System.out.print(builder + "\r");
+    }
 
-        for (Map.Entry<String, Integer> lemmaValue : mapLemmas.entrySet()) {
-            Lemma lemma = null;
-            try {
-                lemma = lemmaRepository.findBySiteIdAndLemma(siteId, lemmaValue.getKey()).orElse(null);
-            } catch (Exception e) {
-                log.warn("lemma = null");
-            }
-            if (lemma != null) {
-                frequency = lemma.getFrequency() + 1;
-                lemma.setFrequency(frequency);
-            } else {
-                lemma = new Lemma(siteId, lemmaValue.getKey(), 1);
-            }
-
-            lemma = lemmaRepository.save(lemma);
-            int lemmaId = lemma.getLemmaId();
-
-            // index ===============
-            IndexE indexE = new IndexE(pageId, lemmaId, lemmaValue.getValue());
-            indexRepository.save(indexE);
+    private Lemma parseOneLemma(int siteId, String key) {
+        Lemma result = lemmaRepository.findBySiteIdAndLemma(siteId, key).orElse(null);
+        if (result == null) {
+            result = new Lemma(siteId, key, 1);
+        } else {
+            result.setFrequency(result.getFrequency() + 1);
         }
+        return result;
     }
 }

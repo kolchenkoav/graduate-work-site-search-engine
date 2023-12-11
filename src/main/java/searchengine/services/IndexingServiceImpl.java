@@ -3,6 +3,7 @@ package searchengine.services;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
+//import org.springframework.transaction.annotation.Transactional;
 import searchengine.config.Messages;
 import searchengine.config.Site;
 import searchengine.config.SiteList;
@@ -16,10 +17,11 @@ import searchengine.parsing.ParseLemma;
 import searchengine.parsing.siteMapping.ParsePage;
 import searchengine.parsing.siteMapping.SiteParser;
 import searchengine.parsing.siteMapping.Utils;
+import searchengine.repository.IndexRepository;
+import searchengine.repository.LemmaRepository;
 import searchengine.repository.PageRepository;
 import searchengine.repository.SiteRepository;
 
-import javax.transaction.Transactional;
 import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.List;
@@ -31,10 +33,15 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 
+import javax.transaction.Transactional;
+
 @Slf4j
 @Service
 @RequiredArgsConstructor
+//@Transactional
 public class IndexingServiceImpl implements IndexingService {
+    private final IndexRepository indexRepository;
+    private final LemmaRepository lemmaRepository;
     private final ParseLemma parseLemma;
     private final SiteParser siteParser;
     private final ParsePage parsePage;
@@ -51,7 +58,7 @@ public class IndexingServiceImpl implements IndexingService {
     //  или полную переиндексацию, если они уже проиндексированы.
     //  Если в настоящий момент индексация или переиндексация уже запущена,
     //  метод возвращает соответствующее сообщение об ошибке.
-    @Transactional
+    //@Transactional
     @Override
     public Object startIndexing() {
         parsePage.setCancelled(new AtomicBoolean(false));
@@ -84,11 +91,10 @@ public class IndexingServiceImpl implements IndexingService {
         executor.setMaximumPoolSize(Runtime.getRuntime().availableProcessors());
 
         siteListFromConfig.getSites().forEach(e -> {
-            deleteByName(e.getName());
             if (parsePage.isCancelled()) {
                 executor.shutdownNow();
             } else {
-                executor.execute(() -> parsingOneSite(e.getUrl(), e.getName(), true));
+                executor.execute(() -> indexingPage(e.getUrl()));
             }
         });
 
@@ -96,11 +102,43 @@ public class IndexingServiceImpl implements IndexingService {
         return true;
     }
 
-    private void deleteByName(String name) {
+    //@Transactional
+    void deleteByName(String name) {
         Optional<SiteE> siteByName = siteRepository.findByName(name);
         if (siteByName.isPresent()) {
-            log.warn("deleteAllByName: " + name);
-            siteRepository.deleteAllByName(name);
+            int siteId = siteByName.get().getSiteId();
+
+//            log.warn("index deleteAllBySiteIdInBatch: {}", siteId);
+//            try {
+//                //indexRepository.deleteAllInBatch();
+//                indexRepository.deleteAllByPageId(pageId);
+//            } catch (Exception e) {
+//                log.error("indexRepository.deleteAllBySiteIdInBatch() message: {}", e.getMessage());
+//            }
+
+            log.warn("lemma deleteAllBySiteId: {}", siteId);
+            try {
+                lemmaRepository.deleteAllBySiteId(siteId);
+                //lemmaRepository.deleteAllInBatch();
+            } catch (Exception e) {
+                //log.error("lemmaRepository.deleteAllBySiteId: {}  message: {}", siteId, e.getMessage());
+                log.error("lemmaRepository.deleteAllBySiteIdInBatch() message: {}", e.getMessage());
+            }
+            log.warn("page deleteAllBySiteId: {}", siteId);
+            try {
+                pageRepository.deleteAllBySiteId(siteId);
+                //pageRepository.deleteAllBySiteIdInBatch(siteId);
+            } catch (Exception e) {
+                //log.error("pageRepository.deleteBySiteId: {}  message: {}", siteId, e.getMessage());
+                log.error("pageRepository.deleteAllBySiteIdInBatch() message: {}", e.getMessage());
+            }
+
+//            log.warn("site deleteAllByName: {}", name);
+//            try {
+//                siteRepository.deleteAllByName(name);
+//            } catch (Exception e) {
+//                log.error("siteRepository.deleteAllByName name: {}  message: {}", name, e.getMessage());
+//            }
         }
     }
     @Transactional
@@ -108,9 +146,10 @@ public class IndexingServiceImpl implements IndexingService {
         parsePage.setCancelled(new AtomicBoolean(false));
         SiteE siteE;
         int siteId;
+        System.out.println();
         if (isCreate) {
             siteE = new SiteE(Status.INDEXING, Utils.setNow(), url, name);
-            log.info("Site '{}' is created...", name);
+            log.info("<<<=== Site '{}' added", name);
         } else {
             siteE = siteRepository.findByName(name).orElse(null);
             if (siteE == null) {
@@ -118,15 +157,14 @@ public class IndexingServiceImpl implements IndexingService {
                 return;
             }
             siteE.setStatus(Status.INDEXING);
-            log.info("Site '{}' is updated...", siteE.getName());
-            siteId = siteE.getSiteId();
-            pageRepository.deleteBySiteId(siteId);
+
+            log.info("<<<=== Site '{}' changed", siteE.getName());
+            deleteByName(name);
         }
 
         siteE = siteRepository.save(siteE);
         siteId = siteE.getSiteId();
         siteEList.add(siteE);
-        //log.info("Parse => url: {} name: {}", url, name);
 
         // подготовка данных для
         siteParser.initSiteParser(siteId, Utils.getProtocolAndDomain(url), url);
@@ -139,6 +177,7 @@ public class IndexingServiceImpl implements IndexingService {
     //  Если в настоящий момент индексация или переиндексация не происходит,
     //  метод возвращает соответствующее сообщение об ошибке.
     @Override
+    //@Transactional
     public Object stopIndexing() {
         if (stopping()) {
             IndexingResponse responseTrue = new IndexingResponse();
@@ -154,15 +193,17 @@ public class IndexingServiceImpl implements IndexingService {
     }
 
     private boolean stopping() {
-        parsePage.setCancelled(new AtomicBoolean(true));
+
         try {
             long size = siteEList.stream().filter(e -> e.getStatus() == Status.INDEXING).count();
             if (size == 0) {
                 log.warn(Messages.INDEXING_IS_NOT_RUNNING);
                 return false;
             }
+            parsePage.setCancelled(new AtomicBoolean(true));
 
-            SiteParser.forceStop();
+            //SiteParser.forceStop();
+            siteParser.forceStop();
 
             executor.shutdownNow();
 
@@ -191,7 +232,7 @@ public class IndexingServiceImpl implements IndexingService {
     //  метод должен вернуть соответствующую ошибку.
     //
     // url — адрес страницы, которую нужно переиндексировать.
-    @Transactional
+    //@Transactional
     @Override
     public Object indexPage(String url) {
         if (indexingPage(url)) {
