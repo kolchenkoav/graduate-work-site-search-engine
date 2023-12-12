@@ -35,8 +35,7 @@ public class ParseLemma {
     private int endPos;
     private int currentPos;
 
-    //@Loggable
-    //@Transactional
+    @Transactional
     public void parsing(Page page) {
 
         String content = page.getContent();
@@ -46,14 +45,25 @@ public class ParseLemma {
             LemmaFinder lemmaFinder = LemmaFinder.getInstance();
             Map<String, Integer> mapLemmas = lemmaFinder.collectLemmas(content);
             Map<Lemma, Integer> mapLemmasForAdd = new HashMap<>();
-            mapLemmas.entrySet().forEach(lemma -> mapLemmasForAdd.put(parseOneLemma(siteId, lemma.getKey()), lemma.getValue()));
+            mapLemmas.forEach((key, value1) -> mapLemmasForAdd.put(parseOneLemma(siteId, key), value1));
+            //mapLemmas.entrySet().parallelStream().parallel().forEach(lemma -> mapLemmasForAdd.put(parseOneLemma(siteId, lemma.getKey()), lemma.getValue()));
+
             lemmaRepository.saveAll(mapLemmasForAdd.keySet());
+//            System.out.println();
+//            mapLemmasForAdd.forEach((k, v) -> {
+//                log.info("mapLemmasForAdd    Lemma: {} value: {}", k, v);
+//            });
 
             List<IndexE> listIndexForAdd = new ArrayList<>();
-            mapLemmasForAdd.entrySet().forEach(value -> listIndexForAdd.add(new IndexE(pageId, value.getKey().getLemmaId(), value.getValue())));
+            mapLemmasForAdd.forEach((key, value1) -> listIndexForAdd.add(new IndexE(pageId, key.getLemmaId(), value1)));
+            //mapLemmasForAdd.entrySet().parallelStream().parallel().forEach(value -> listIndexForAdd.add(new IndexE(pageId, value.getKey().getLemmaId(), value.getValue())));
+//            System.out.println();
+//            listIndexForAdd.forEach((i) -> {
+//                log.info("listIndexForAdd    IndexE: {}", i);
+//            });
             indexRepository.saveAll(listIndexForAdd);
-            printMessageAboutProgress(siteId, pageId, mapLemmasForAdd.size(), page.getPath());
 
+            printMessageAboutProgress(siteId, pageId, mapLemmasForAdd.size(), page.getPath());
 
         } catch (Exception e) {
             log.error("Ошибка parsing lemmas: {} siteId: {} pageId: {}", content.substring(0, 50) + "...", siteId, pageId);

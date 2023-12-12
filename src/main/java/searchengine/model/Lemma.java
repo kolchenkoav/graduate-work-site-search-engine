@@ -14,14 +14,13 @@ import java.util.Objects;
 @NoArgsConstructor
 @Entity
 @Table(name = "lemma", schema = "search_engine")
-@SQLInsert(sql = "insert into search_engine.lemma(site_id, lemma, frequency) values (?, ?, ?) on duplicate key update frequency = lemma.frequency + 1")
+@SQLInsert(sql = "insert into search_engine.lemma(frequency, lemma, site_id) values (?, ?, ?) on duplicate key update frequency = lemma.frequency + 1")
 public class Lemma {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "lemma_id", nullable = false)
     private int lemmaId;
-
-    @NonNull
+    @OrderColumn()
     @Column(name = "site_id")
     private int siteId;
 
@@ -29,7 +28,6 @@ public class Lemma {
     @Column(name = "lemma")
     private String lemma;
 
-    @NonNull
     @Column(name = "frequency")
     private int frequency;
 
@@ -39,6 +37,12 @@ public class Lemma {
     @ManyToOne
     @JoinColumn(name = "site_id", insertable = false, updatable = false) //, insertable = false, updatable = false
     private SiteE siteEBySiteId;
+
+    public Lemma(int siteId, @NonNull String lemma, int frequency) {
+        this.siteId = siteId;
+        this.lemma = lemma;
+        this.frequency = frequency;
+    }
 
     @Override
     public boolean equals(Object o) {
@@ -51,5 +55,15 @@ public class Lemma {
     @Override
     public int hashCode() {
         return Objects.hash(lemmaId, siteId, lemma, frequency);
+    }
+
+    @Override
+    public String toString() {
+        return "Lemma{" +
+                "lemmaId=" + lemmaId +
+                ", siteId=" + siteId +
+                ", lemma='" + lemma + '\'' +
+                ", frequency=" + frequency +
+                '}';
     }
 }
