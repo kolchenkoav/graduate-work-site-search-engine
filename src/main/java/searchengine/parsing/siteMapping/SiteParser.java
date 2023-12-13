@@ -26,7 +26,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 public class SiteParser {
     private final PageRepository pageRepository;
     private final SiteRepository siteRepository;
-    private final ParseLemma parseLemma;                // = new ParseLemma();
+    private final ParseLemma parseLemma;
 
     private int siteId;
     private String domain;
@@ -51,6 +51,13 @@ public class SiteParser {
     private static final int PARALLELISM = 120;
     private static ForkJoinPool pool;
 
+    /**
+     * <p>This is a simple description of the method. . .
+     * <a href="http://www.supermanisthegreatest.com">Superman!</a>
+     * </p>
+     * @see <a href="http://www.link_to_jira/HERO-402">HERO-402</a>
+     * @since 1.0
+     */
     public void getLinks() {
         System.out.println(url);
         pool = new ForkJoinPool(PARALLELISM);

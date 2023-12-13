@@ -4,15 +4,11 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+
 import searchengine.dto.statistics.StatisticsResponse;
-
-import searchengine.parsing.ParseLemma;
-
 import searchengine.services.IndexingService;
 import searchengine.services.SearchService;
 import searchengine.services.StatisticsService;
-
-
 
 @Slf4j
 @RestController
@@ -22,8 +18,6 @@ public class ApiController {
     private final StatisticsService statisticsService;
     private final IndexingService indexingService;
     private final SearchService searchService;
-    private final ParseLemma parseLemma;
-
 
     @GetMapping("/statistics")
     public ResponseEntity<StatisticsResponse> statistics() {
@@ -49,16 +43,14 @@ public class ApiController {
 
     @GetMapping("/search")
     public ResponseEntity<?> search(@RequestParam String query,
-                                         @RequestParam(required = false) String site,
-                                         @RequestParam int offset,
-                                         @RequestParam(required = false) int limit) {
+                                    @RequestParam(required = false) String site,
+                                    @RequestParam int offset,
+                                    @RequestParam(required = false) int limit) {
         return ResponseEntity.ok(searchService.search(query, site, offset, limit));
     }
 
     @GetMapping("/test")
     public ResponseEntity<?> test() {
-        //parseLemma.parsing("java armchair Ways way. Лошадей и лошадью tables table chair chairs armchairs. Повторное появление леопарда в Осетии позволяет предположить. java Хлеба лошади Java");
         return ResponseEntity.ok(123);
     }
-
 }

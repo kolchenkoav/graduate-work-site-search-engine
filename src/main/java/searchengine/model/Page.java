@@ -13,7 +13,7 @@ import java.util.Objects;
 @NoArgsConstructor
 @Entity
 @Table(name = "page", schema = "search_engine", indexes = @Index(columnList = "path"))
-public class Page  {                            // implements Serializable
+public class Page {                            // implements Serializable
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Id
     @Column(name = "page_id")
@@ -25,7 +25,7 @@ public class Page  {                            // implements Serializable
 
     @NonNull
     @Basic(optional = false)
-    @Column(name = "path", length =255)
+    @Column(name = "path", length = 255)
     private String path;
 
     @NonNull

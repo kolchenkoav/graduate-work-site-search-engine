@@ -3,7 +3,6 @@ package searchengine.services;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
-//import org.springframework.transaction.annotation.Transactional;
 import searchengine.config.Messages;
 import searchengine.config.Site;
 import searchengine.config.SiteList;
@@ -38,11 +37,8 @@ import javax.transaction.Transactional;
 @Slf4j
 @Service
 @RequiredArgsConstructor
-//@Transactional
 public class IndexingServiceImpl implements IndexingService {
-    private final IndexRepository indexRepository;
     private final LemmaRepository lemmaRepository;
-    private final ParseLemma parseLemma;
     private final SiteParser siteParser;
     private final ParsePage parsePage;
     private final SiteList siteListFromConfig;
@@ -52,13 +48,14 @@ public class IndexingServiceImpl implements IndexingService {
     private final DefaultController controller;
     private Object response;
     private ThreadPoolExecutor executor;
-    //public static boolean isStopIndexing = false;
 
-    //  Метод запускает полную индексацию всех сайтов
-    //  или полную переиндексацию, если они уже проиндексированы.
-    //  Если в настоящий момент индексация или переиндексация уже запущена,
-    //  метод возвращает соответствующее сообщение об ошибке.
-    //@Transactional
+    /**
+     * Метод запускает полную индексацию всех сайтов
+     * или полную переиндексацию, если они уже проиндексированы.
+     * Если в настоящий момент индексация или переиндексация уже запущена,
+     * метод возвращает соответствующее сообщение об ошибке.
+     * @see <a href="jetbrains://idea/navigate/reference?project=searchengine-master&path=docs/startIndexing.md">Запуск полной индексации</a>
+     */
     @Override
     public Object startIndexing() {
         parsePage.setCancelled(new AtomicBoolean(false));
@@ -102,45 +99,28 @@ public class IndexingServiceImpl implements IndexingService {
         return true;
     }
 
-    //@Transactional
+
     void deleteByName(String name) {
         Optional<SiteE> siteByName = siteRepository.findByName(name);
         if (siteByName.isPresent()) {
             int siteId = siteByName.get().getSiteId();
 
-//            log.warn("index deleteAllBySiteIdInBatch: {}", siteId);
-//            try {
-//                //indexRepository.deleteAllInBatch();
-//                indexRepository.deleteAllByPageId(pageId);
-//            } catch (Exception e) {
-//                log.error("indexRepository.deleteAllBySiteIdInBatch() message: {}", e.getMessage());
-//            }
-
             log.warn("lemma deleteAllBySiteId: {}", siteId);
             try {
                 lemmaRepository.deleteAllBySiteId(siteId);
-                //lemmaRepository.deleteAllInBatch();
             } catch (Exception e) {
-                //log.error("lemmaRepository.deleteAllBySiteId: {}  message: {}", siteId, e.getMessage());
                 log.error("lemmaRepository.deleteAllBySiteIdInBatch() message: {}", e.getMessage());
             }
             log.warn("page deleteAllBySiteId: {}", siteId);
             try {
                 pageRepository.deleteAllBySiteId(siteId);
-                //pageRepository.deleteAllBySiteIdInBatch(siteId);
             } catch (Exception e) {
-                //log.error("pageRepository.deleteBySiteId: {}  message: {}", siteId, e.getMessage());
                 log.error("pageRepository.deleteAllBySiteIdInBatch() message: {}", e.getMessage());
             }
 
-//            log.warn("site deleteAllByName: {}", name);
-//            try {
-//                siteRepository.deleteAllByName(name);
-//            } catch (Exception e) {
-//                log.error("siteRepository.deleteAllByName name: {}  message: {}", name, e.getMessage());
-//            }
         }
     }
+
     @Transactional
     void parsingOneSite(String url, String name, boolean isCreate) {
         parsePage.setCancelled(new AtomicBoolean(false));
