@@ -49,13 +49,7 @@ public class IndexingServiceImpl implements IndexingService {
     private Object response;
     private ThreadPoolExecutor executor;
 
-    /**
-     * Метод запускает полную индексацию всех сайтов
-     * или полную переиндексацию, если они уже проиндексированы.
-     * Если в настоящий момент индексация или переиндексация уже запущена,
-     * метод возвращает соответствующее сообщение об ошибке.
-     * @see <a href="jetbrains://idea/navigate/reference?project=searchengine-master&path=docs/startIndexing.md">Запуск полной индексации</a>
-     */
+
     @Override
     public Object startIndexing() {
         parsePage.setCancelled(new AtomicBoolean(false));
@@ -79,7 +73,7 @@ public class IndexingServiceImpl implements IndexingService {
                 .reduce(0, Integer::sum) > 0) {
             return false;
         }
-        parsePage.clearUniqueLinks();   // Очистка списка уникальных ссылок
+        parsePage.clearUniqueLinks();
 
         final ThreadFactory threadFactory = new ThreadFactoryBuilder()
                 .setNameFormat("Cайт: %d")
