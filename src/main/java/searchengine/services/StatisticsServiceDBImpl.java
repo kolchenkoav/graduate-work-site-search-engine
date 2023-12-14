@@ -32,8 +32,8 @@ public class StatisticsServiceDBImpl implements StatisticsService {
     public StatisticsResponse getStatistics() {
         StatisticsResponse response = new StatisticsResponse();
         StatisticsData data = new StatisticsData();
-
         TotalStatistics total = new TotalStatistics();
+
         total.setSites(sites.getSites().size());
         total.setIndexing(true);
 
