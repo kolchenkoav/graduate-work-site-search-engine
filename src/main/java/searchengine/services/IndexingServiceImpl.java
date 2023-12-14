@@ -176,6 +176,7 @@ public class IndexingServiceImpl implements IndexingService {
             }
             parsePage.setCancelled(new AtomicBoolean(true));
 
+            //SiteParser.forceStop();
             siteParser.forceStop();
 
             executor.shutdownNow();
@@ -199,7 +200,13 @@ public class IndexingServiceImpl implements IndexingService {
         return true;
     }
 
-
+    //  Метод добавляет в индекс или обновляет отдельную страницу,
+    //  адрес которой передан в параметре.
+    //  Если адрес страницы передан неверно,
+    //  метод должен вернуть соответствующую ошибку.
+    //
+    // url — адрес страницы, которую нужно переиндексировать.
+    //@Transactional
     @Override
     public Object indexPage(String url) {
         if (indexingPage(url)) {

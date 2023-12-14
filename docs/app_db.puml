@@ -1,0 +1,51 @@
+
+@startuml
+skinparam linetype ortho
+
+entity "site" as site {
+  * **site_id**: int <<generated>>
+  --
+  * **status**: Status
+  statusTime: Timestamp
+  lastError: String
+  url: String
+  name: String
+}
+
+entity "page" as page {
+  * **page_id**: int <<generated>>
+  --
+  * **site_id**: int <<FK>>
+  * **path**: String <<Index>>
+  code: int
+  content: String
+  title: String
+
+}
+
+entity "lemma" as lemma {
+  * **lemma_id** : int <<generated>>
+  --
+  * **site_id**: int <<FK>>
+  lemma: String
+  frequency: int
+}
+
+entity "index_e" as index {
+  * **index_id** : int <<generated>>
+  --
+  * **page_id**: int <<FK>>
+  * **lemma_id**: int <<FK>>
+  rank: double
+}
+
+entity "status" as st {
+  status: enum
+}
+
+site ||..o{ page
+site ||..o{ lemma
+lemma ||..o{ index
+page ||..o{ index
+site ||-- st
+@enduml
