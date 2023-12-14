@@ -2,6 +2,7 @@ package searchengine.services;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.jsoup.nodes.Document;
 import org.springframework.stereotype.Service;
 import searchengine.config.Messages;
 import searchengine.config.Site;
@@ -9,9 +10,9 @@ import searchengine.config.SiteList;
 import searchengine.controllers.DefaultController;
 import searchengine.dto.indexing.IndexingErrorResponse;
 import searchengine.dto.indexing.IndexingResponse;
+import searchengine.model.Page;
 import searchengine.model.SiteE;
 import searchengine.model.Status;
-
 import searchengine.parsing.siteMapping.ParsePage;
 import searchengine.parsing.siteMapping.SiteParser;
 import searchengine.parsing.siteMapping.Utils;
@@ -161,7 +162,6 @@ public class IndexingServiceImpl implements IndexingService {
             } catch (Exception e) {
                 log.error("pageRepository.deleteAllBySiteIdInBatch() message: {}", e.getMessage());
             }
-
         }
     }
 
@@ -191,7 +191,6 @@ public class IndexingServiceImpl implements IndexingService {
      * @return true -Успешно, false -ошибка
      */
     private boolean stopping() {
-
         try {
             long size = siteEList.stream().filter(e -> e.getStatus() == Status.INDEXING).count();
             if (size == 0) {
@@ -219,7 +218,6 @@ public class IndexingServiceImpl implements IndexingService {
             log.error(e.getMessage());
             return false;
         }
-
         return true;
     }
 
@@ -261,17 +259,32 @@ public class IndexingServiceImpl implements IndexingService {
             log.warn("site == null");
             return false;
         }
-        //TODO Индексация отдельной страницы
-        if (true) {
-
-        } else {
-
-        }
 
         String name = site.getName();
-        parsePage.clearUniqueLinks();
-        parsingOneSite(url, name, siteRepository.findByName(name).isEmpty());
+        SiteE siteE = siteRepository.findByName(name).orElse(null);
+        if (siteE == null) {
+            siteE = new SiteE(Status.INDEXING, Utils.setNow(), url, name);
+        } else {
+            siteE.setStatus(Status.INDEXING);
+            siteE.setStatusTime(Utils.setNow());
+            // TODO удаляем аккуратно лемыы и индексы
 
+        }
+        siteE.setLastError("");
+        siteRepository.save(siteE);
+
+        Document doc = parsePage.getDocumentByUrl(url);
+        parsePage.setSiteId(siteE.getSiteId());
+        parsePage.setDomain(Utils.getProtocolAndDomain(url));
+        parsePage.setUrl(url);
+
+        Page page = parsePage.savePage(doc);
+        siteParser.parseSinglePage(page);
+
+        siteE.setStatus(Status.INDEXED);
+        siteE.setStatusTime(Utils.setNow());
+        siteRepository.save(siteE);
+        log.info("page saved...");
         return true;
     }
 }

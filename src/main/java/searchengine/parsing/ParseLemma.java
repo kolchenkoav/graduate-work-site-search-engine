@@ -71,6 +71,10 @@ public class ParseLemma {
     }
 
     private void printMessageAboutProgress(int siteId, int pageId, int countOfLemmas, String url) {
+        if ((endPos - beginPos) == 0 ) {
+            log.info("Writing lemmas and indices: {} ", countOfLemmas);
+            return;
+        }
         StringBuilder builder = new StringBuilder();
         builder.append("Writing lemmas and indices: ").append(ANSI_GREEN).append((currentPos - beginPos) * 100 / (endPos - beginPos)).append("% ");
         builder.append(ANSI_RESET).append(" siteId:").append(ANSI_CYAN).append(siteId).append(ANSI_RESET);

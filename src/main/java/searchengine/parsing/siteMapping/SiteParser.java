@@ -125,7 +125,7 @@ public class SiteParser {
         System.out.println();
     }
 
-    private void parseSinglePage(Page page) {
+    public void parseSinglePage(Page page) {
         parseLemma.setCurrentPos(page.getPageId());
         if (!getCancelledSite().get()) {
             parseLemma.parsing(page);

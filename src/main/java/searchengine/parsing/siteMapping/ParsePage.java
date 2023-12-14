@@ -21,11 +21,9 @@ import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.RecursiveTask;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 
 import static searchengine.parsing.siteMapping.Utils.*;
-
 
 @Slf4j
 @Getter
@@ -56,24 +54,14 @@ public class ParsePage extends RecursiveTask<Set<String>> {
         Set<String> listOfUrls = new HashSet<>();
         List<ParsePage> tasks = new ArrayList<>();
 
-        Document doc = null;
-        try {
-            doc = Jsoup.connect(url)
-                    .userAgent("Mozilla/5.0 (Windows; U; WindowsNT 5.1; en-US; rv1.8.1.6) Gecko/20070725 Firefox/2.0.0.6")
-                    .referrer("http://www.google.com")
-                    .get();
-            TimeUnit.MILLISECONDS.sleep((int) (Math.random() * 50 + 100));
-        } catch (HttpStatusException e) {
-            code = e.getStatusCode();
-        } catch (IOException | InterruptedException ex) {
-            return listOfUrls;
-        }
+        Document doc = getDocumentByUrl(url);
 
         if (doc == null) {
             return listOfUrls;
         }
         if (uniqueLinks.containsKey(url)) {
             savePage(doc);
+            printMessageAboutPages();
         }
 
         Elements elements = doc.select("a[href~=^/?([\\w\\d/-]+)?]");
@@ -93,21 +81,45 @@ public class ParsePage extends RecursiveTask<Set<String>> {
         return listOfUrls;
     }
 
-    private void savePage(Document doc) {
+    /**
+     * Получить Document по ссылке
+     *
+     * @param url ссылка на страницу
+     * @return Document
+     */
+    public Document getDocumentByUrl(String url) {
+        Document doc = null;
+        try {
+            doc = Jsoup.connect(url)
+                    .userAgent("Mozilla/5.0 (Windows; U; WindowsNT 5.1; en-US; rv1.8.1.6) Gecko/20070725 Firefox/2.0.0.6")
+                    .referrer("http://www.google.com")
+                    .get();
+        } catch (HttpStatusException e) {
+            code = e.getStatusCode();
+        } catch (IOException ex) {
+            return null;
+        }
+        return doc;
+    }
+
+    /**
+     * Сохраняет новую страницу
+     *
+     * @param doc
+     */
+    public Page savePage(Document doc) {
         String content = doc.body().text();
         String title = doc.title();
-        Page page = new Page(siteId, url.substring(domain.length(), url.length()), code, content, title);
+        Page page = new Page(siteId, url.substring(domain.length()), code, content, title);
         pageRepository.save(page);
-
-        if (code == 200) {
-            printMessageAboutPages();
-        } else {
-            countErrorPages++;
-            log.warn("url: {} {}", url, code);
-        }
+        return page;
     }
 
     private void printMessageAboutPages() {
+        if (code != 200) {
+            countErrorPages++;
+            log.warn("url: {} {}", url, code);
+        }
         StringBuilder builder = new StringBuilder();
         builder.append("Number of pages found: ").append(ANSI_BLUE).append(uniqueLinks.size()).append(ANSI_RESET);
         if (countErrorPages > 0) {

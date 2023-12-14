@@ -15,6 +15,7 @@ public class Utils {
     public static final String ANSI_PURPLE = "\u001B[35m";
     public static final String ANSI_CYAN = "\u001B[36m";
     public static final String ANSI_WHITE = "\u001B[37m";
+
     public static String getProtocolAndDomain(String url) {
         String regEx = "(^https:\\/\\/)(?:[^@\\/\\n]+@)?(?:www\\.)?([^:\\/\\n]+)";
         ByteBuffer buffer = StandardCharsets.UTF_8.encode(regEx);

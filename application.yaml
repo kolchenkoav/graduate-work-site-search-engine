@@ -6,8 +6,8 @@ indexing-settings:
 #      name: Блог Старого Перца
     - url: https://konstruktorysajtov.com
       name: Лучшие платформы для сайтов
-#    - url: https://jsoup.org/cookbook
-#      name: Cookbook jsoup Java HTML parser
+    - url: https://jsoup.org/cookbook
+      name: Cookbook jsoup Java HTML parser
 
 server:
   port: 8080

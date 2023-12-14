@@ -21,5 +21,4 @@ public interface LemmaRepository extends JpaRepository<Lemma, Integer> {
 
     void deleteAllBySiteId(int siteId);
 
-    //void deleteAllBySiteIdInBatch(int siteId);
 }

@@ -11,7 +11,7 @@
     1. cd docker
     2. docker compouse up
     3. Запустите созданный образ MySQL
-* В [pplication.yam](application.yaml) добавте сайты для индексации
+* В [application.yam](application.yaml) добавте сайты для индексации
 * Запустите приложение и откройте его через браузер по адресу: [http://localhost:8080/](http://localhost:8080/)
 * Перейдите в **MANAGEMENT** и нажмите кнопку **START INDEXING**
 * В консоле отражается процесс

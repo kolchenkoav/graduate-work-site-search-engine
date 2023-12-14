@@ -19,5 +19,4 @@ public interface PageRepository extends JpaRepository<Page, Long>  {
 
     void deleteAllBySiteId(int siteId);
 
-//    void deleteAllBySiteIdInBatch(int siteId);
 }
