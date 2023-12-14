@@ -1,4 +1,4 @@
-[Постановка задачи](docs/Task.md)  
+[Постановка задачи](docs/task.md)  
 ![search-engine](images/search-engine.png "search-engine")
 # Разработка локального поискового движка по сайту
 ## Описание проекта

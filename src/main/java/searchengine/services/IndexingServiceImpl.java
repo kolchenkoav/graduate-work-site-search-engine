@@ -11,12 +11,10 @@ import searchengine.dto.indexing.IndexingErrorResponse;
 import searchengine.dto.indexing.IndexingResponse;
 import searchengine.model.SiteE;
 import searchengine.model.Status;
-import searchengine.parsing.ParseLemma;
 
 import searchengine.parsing.siteMapping.ParsePage;
 import searchengine.parsing.siteMapping.SiteParser;
 import searchengine.parsing.siteMapping.Utils;
-import searchengine.repository.IndexRepository;
 import searchengine.repository.LemmaRepository;
 import searchengine.repository.PageRepository;
 import searchengine.repository.SiteRepository;
@@ -49,7 +47,11 @@ public class IndexingServiceImpl implements IndexingService {
     private Object response;
     private ThreadPoolExecutor executor;
 
-
+    /******************************************************************************************
+     * Запуск полной индексации
+     *
+     * @return response (Успешно или ошибка)
+     */
     @Override
     public Object startIndexing() {
         parsePage.setCancelled(new AtomicBoolean(false));
@@ -67,6 +69,11 @@ public class IndexingServiceImpl implements IndexingService {
         return response;
     }
 
+    /**
+     * Индексация по списку из конфигурации
+     *
+     * @return true -Успешно, false -ошибка
+     */
     private boolean indexing() {
         if (siteListFromConfig.getSites().stream()
                 .map(e -> siteRepository.countByNameAndStatus(e.getName(), Status.INDEXING))
@@ -93,28 +100,13 @@ public class IndexingServiceImpl implements IndexingService {
         return true;
     }
 
-
-    void deleteByName(String name) {
-        Optional<SiteE> siteByName = siteRepository.findByName(name);
-        if (siteByName.isPresent()) {
-            int siteId = siteByName.get().getSiteId();
-
-            log.warn("lemma deleteAllBySiteId: {}", siteId);
-            try {
-                lemmaRepository.deleteAllBySiteId(siteId);
-            } catch (Exception e) {
-                log.error("lemmaRepository.deleteAllBySiteIdInBatch() message: {}", e.getMessage());
-            }
-            log.warn("page deleteAllBySiteId: {}", siteId);
-            try {
-                pageRepository.deleteAllBySiteId(siteId);
-            } catch (Exception e) {
-                log.error("pageRepository.deleteAllBySiteIdInBatch() message: {}", e.getMessage());
-            }
-
-        }
-    }
-
+    /**
+     * Парсинг заданного сайта
+     *
+     * @param url      ссылка на сайт
+     * @param name     имя сайта
+     * @param isCreate true -новая запись, false - изменить запись
+     */
     @Transactional
     void parsingOneSite(String url, String name, boolean isCreate) {
         parsePage.setCancelled(new AtomicBoolean(false));
@@ -140,18 +132,45 @@ public class IndexingServiceImpl implements IndexingService {
         siteId = siteE.getSiteId();
         siteEList.add(siteE);
 
-        // подготовка данных для
+        /** подготовка данных */
         siteParser.initSiteParser(siteId, Utils.getProtocolAndDomain(url), url);
 
-        // вызов парсинга сайтов
+        /** вызов парсинга сайта */
         siteParser.getLinks();
     }
 
-    //  Метод останавливает текущий процесс индексации (переиндексации).
-    //  Если в настоящий момент индексация или переиндексация не происходит,
-    //  метод возвращает соответствующее сообщение об ошибке.
+    /**
+     * Удаление страниц и лемм по name
+     *
+     * @param name имя сайта
+     */
+    void deleteByName(String name) {
+        Optional<SiteE> siteByName = siteRepository.findByName(name);
+        if (siteByName.isPresent()) {
+            int siteId = siteByName.get().getSiteId();
+
+            log.warn("lemma deleteAllBySiteId: {}", siteId);
+            try {
+                lemmaRepository.deleteAllBySiteId(siteId);
+            } catch (Exception e) {
+                log.error("lemmaRepository.deleteAllBySiteIdInBatch() message: {}", e.getMessage());
+            }
+            log.warn("page deleteAllBySiteId: {}", siteId);
+            try {
+                pageRepository.deleteAllBySiteId(siteId);
+            } catch (Exception e) {
+                log.error("pageRepository.deleteAllBySiteIdInBatch() message: {}", e.getMessage());
+            }
+
+        }
+    }
+
+    /******************************************************************************************
+     * Метод останавливает текущий процесс индексации
+     *
+     * @return response (Успешно или ошибка)
+     */
     @Override
-    //@Transactional
     public Object stopIndexing() {
         if (stopping()) {
             IndexingResponse responseTrue = new IndexingResponse();
@@ -166,6 +185,11 @@ public class IndexingServiceImpl implements IndexingService {
         return response;
     }
 
+    /**
+     * Остановка выполнения индексации
+     *
+     * @return true -Успешно, false -ошибка
+     */
     private boolean stopping() {
 
         try {
@@ -176,7 +200,6 @@ public class IndexingServiceImpl implements IndexingService {
             }
             parsePage.setCancelled(new AtomicBoolean(true));
 
-            //SiteParser.forceStop();
             siteParser.forceStop();
 
             executor.shutdownNow();
@@ -200,13 +223,12 @@ public class IndexingServiceImpl implements IndexingService {
         return true;
     }
 
-    //  Метод добавляет в индекс или обновляет отдельную страницу,
-    //  адрес которой передан в параметре.
-    //  Если адрес страницы передан неверно,
-    //  метод должен вернуть соответствующую ошибку.
-    //
-    // url — адрес страницы, которую нужно переиндексировать.
-    //@Transactional
+    /******************************************************************************************
+     * Добавление или обновление отдельной страницы
+     *
+     * @param url адрес страницы, которую нужно переиндексировать.
+     * @return response (Успешно или ошибка)
+     */
     @Override
     public Object indexPage(String url) {
         if (indexingPage(url)) {
@@ -222,6 +244,11 @@ public class IndexingServiceImpl implements IndexingService {
         return response;
     }
 
+    /**
+     * Индексация отдельной страницы
+     *
+     * @return true -Успешно, false -ошибка
+     */
     private boolean indexingPage(String url) {
         if (siteListFromConfig.getSites().stream().noneMatch(site -> site.getUrl().equals(url))) {
             return false;
@@ -234,6 +261,13 @@ public class IndexingServiceImpl implements IndexingService {
             log.warn("site == null");
             return false;
         }
+        //TODO Индексация отдельной страницы
+        if (true) {
+
+        } else {
+
+        }
+
         String name = site.getName();
         parsePage.clearUniqueLinks();
         parsingOneSite(url, name, siteRepository.findByName(name).isEmpty());

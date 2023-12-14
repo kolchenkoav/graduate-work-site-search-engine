@@ -15,9 +15,9 @@
 * Запустите приложение и откройте его через браузер по адресу: [http://localhost:8080/](http://localhost:8080/)
 * Перейдите в **MANAGEMENT** и нажмите кнопку **START INDEXING**
 * В консоле отражается процесс
-  ![search-engine](../images/Process.jpg "Process")
+  ![search-engine](../images/process.jpg "process")
 * После завершения можно перейти в **DASHBOARD** и увидеть статистику (например)
-  ![search-engine](../images/localhost.jpg "Process")
+  ![search-engine](../images/localhost.jpg "localhost")
 * Для поиска необходимо перейти в **SEARCH**
 
 ## 2. Запуск jar файла
