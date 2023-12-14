@@ -1,5 +1,5 @@
 [README](../README.md)  
-###Стэк используемых технологий
+### Стэк используемых технологий
 Java 17  
 Maven  
 [Docker-compose](../docker/docker-compose.yml) -> [init.sql](../docker/init.sql)  
