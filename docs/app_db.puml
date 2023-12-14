@@ -1,0 +1,38 @@
+
+@startuml
+skinparam linetype ortho
+
+entity "User" as u01 {
+  *user_id : number <<generated>>
+  --
+  *user_name : text
+}
+
+entity "Group" as ng {
+  *group_id : number <<generated>>
+  --
+  *group_name : text
+}
+
+entity "News" as n {
+  *news_id : number <<generated>>
+  --
+  *group : "Group"
+  *user : "User"
+  *message : text
+}
+
+entity "Comment" as nc {
+  *comment_id : number <<generated>>
+  --
+  *news : ""News"
+  *user : "User"
+  *comment : text
+}
+
+
+u01 ||..o{ n
+u01 ||..o{ nc
+n ||..o{ nc
+ng ||..o{ n
+@enduml

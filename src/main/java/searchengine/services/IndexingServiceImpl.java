@@ -264,9 +264,7 @@ public class IndexingServiceImpl implements IndexingService {
         }
 
 
-        String name = site.getName();
-        parsePage.clearUniqueLinks();
-        parsingOneSite(url, name, siteRepository.findByName(name).isEmpty());
+
 
         return true;
     }
