@@ -248,11 +248,13 @@ public class IndexingServiceImpl implements IndexingService {
      * @return true -Успешно, false -ошибка
      */
     private boolean indexingPage(String url) {
-        if (siteListFromConfig.getSites().stream().noneMatch(site -> site.getUrl().equals(url))) {
+        String domain = Utils.getProtocolAndDomain(url);
+
+        if (siteListFromConfig.getSites().stream().noneMatch(site -> site.getUrl().equals(domain))) {
             return false;
         }
         Site site = siteListFromConfig.getSites().stream()
-                .filter(s -> s.getUrl().equals(url))
+                .filter(s -> s.getUrl().equals(domain))
                 .findFirst()
                 .orElse(null);
         if (site == null) {
@@ -261,13 +263,15 @@ public class IndexingServiceImpl implements IndexingService {
         }
 
         String name = site.getName();
+
+
         SiteE siteE = siteRepository.findByName(name).orElse(null);
         if (siteE == null) {
-            siteE = new SiteE(Status.INDEXING, Utils.setNow(), url, name);
+            siteE = new SiteE(Status.INDEXING, Utils.setNow(), domain, name);
         } else {
             siteE.setStatus(Status.INDEXING);
             siteE.setStatusTime(Utils.setNow());
-            // TODO удаляем аккуратно лемыы и индексы
+            // TODO удаляем аккуратно леммы и индексы
 
         }
         siteE.setLastError("");
@@ -275,7 +279,7 @@ public class IndexingServiceImpl implements IndexingService {
 
         Document doc = parsePage.getDocumentByUrl(url);
         parsePage.setSiteId(siteE.getSiteId());
-        parsePage.setDomain(Utils.getProtocolAndDomain(url));
+        parsePage.setDomain(domain);
         parsePage.setUrl(url);
 
         Page page = parsePage.savePage(doc);
@@ -286,5 +290,6 @@ public class IndexingServiceImpl implements IndexingService {
         siteRepository.save(siteE);
         log.info("page saved...");
         return true;
+
     }
 }
