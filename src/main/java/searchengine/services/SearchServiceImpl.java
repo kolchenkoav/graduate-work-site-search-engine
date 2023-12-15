@@ -13,6 +13,9 @@ import searchengine.dto.search.SearchData;
 import searchengine.dto.search.SearchErrorResponse;
 import searchengine.dto.search.SearchResponse;
 import searchengine.lemma.LemmaFinder;
+import searchengine.model.IndexE;
+import searchengine.model.Lemma;
+import searchengine.model.SiteE;
 import searchengine.repository.IndexRepository;
 import searchengine.repository.LemmaRepository;
 import searchengine.repository.SiteRepository;
@@ -58,114 +61,53 @@ public class SearchServiceImpl implements SearchService {
     //  limit — количество результатов, которое необходимо вывести
     //      (параметр необязательный; если не установлен, то значение по умолчанию равно 20).
     @Override
-    @Loggable
     public Object search(String query, String site, int offset, int limit) {
-
-//        System.out.println(lemmaFinder.getLemma("покрасил"));
-//        System.out.println(lemmaFinder.getLemma("прошкурил"));
-//        System.out.println(lemmaFinder.getLemma("иметь"));
-//        System.out.println(lemmaFinder.getLemma("поиметь"));
-//        System.out.println(lemmaFinder.getLemma("заиметь"));
-
-        Object response1;
-
-        List<String> listW =  lemmaFinder.getLemmaList("geese was been ");
-        listW.forEach(System.out::println);
-
-        wordSearch = query;
-
-        //mock===================================================================
-
-        List<String> list = getList();
-
-        if (list.size() > 0) {
-            String s = list.get(list.size() - 1);
-            log.info("s: {}", s);
-
-            String snippet = getSnippet(content, s);
-            log.info("snippet: {}", snippet);
-
-            List<SearchData> searchDataList1 = new ArrayList<>();
-            SearchResponse responseTrue = new SearchResponse();
-            responseTrue.setResult(true);
-            responseTrue.setCount(1);
-            SearchData searchData = new SearchData(site,
-                    "Лучшие платформы для сайтов",
-                    "/kak-sozdat-sajt-fotografa",
-                    "Как создать сайт фотографа",
-                    snippet,
-                    0.93362);
-            searchDataList1.add(searchData);
-
-            responseTrue.setData(searchDataList1);
-
-            response1 = responseTrue;
-
-        } else {
-            log.warn("Not found");
-            SearchData searchData = null;
-            List<SearchData> searchDataList1 = new ArrayList<>();
-            SearchResponse responseTrue = new SearchResponse();
-
-            SearchErrorResponse responseFalse = new SearchErrorResponse();
-            responseFalse.setResult(false);
-            responseFalse.setError(Messages.EMPTY_SEARCH_QUERY_SPECIFIED);
-            response1 = responseFalse;
-        }
-
-
-        return response1;
-        //end mock===============================================================
-
-        /*
-        Object response;
         List<SearchData> searchDataList = new ArrayList<>();
         log.info("search => query: '{}'  site: '{}' offset: {} limit: {}", query, site, offset, limit);
 
-        List<Site> siteList;
-        if (site == null) {
-            // поиск по всем сайтам в списке
-            siteList = sites.getSites();
-        } else {
-            siteList = sites.getSites()
-                    .stream()
-                    .filter(site1 -> site1.getUrl().equals(site)).toList();
+        List<Site> siteList = getSiteList(site);
+        if (siteList == null) {
+            log.warn("Search site not found");
+            return getResponseFalse();
         }
 
-
-
-        //  1.  Разбить поисковый запрос на отдельные слова и формировать из этих слов список уникальных лемм
         LemmaFinder lemmaFinder = LemmaFinder.getInstance();
-        assert lemmaFinder != null;
         Map<String, Integer> mapLemmas = lemmaFinder.collectLemmas(query);
+        if (mapLemmas==null) {
+            log.warn("Lemmas for search not found");
+            return getResponseFalse();
+        }
 
-        //========================================================
-        //  Список сайтов:          List<Site> siteList
-        //  Запрос:                 String query
-        //  сдвиг:                  0
-        //  количество результатов: 20
-        //  Запрос список:          Map<String, Integer> mapLemmas
-        //========================================================
+        /**
+          Список сайтов:          List<Site> siteList
+          Запрос:                 String query
+          сдвиг:                  0
+          количество результатов: 20
+          Запрос список:          Map<String, Integer> mapLemmas
+         */
+        List<Lemma> lemmaList = new ArrayList<>();
+        List<IndexE> indexList = new ArrayList<>();
         siteList.forEach(siteForSearch -> {
             SiteE siteE = siteRepository.findByName(siteForSearch.getName()).orElse(null);
+            int siteId = 0;
+            if (siteE != null) {
+                siteId = siteE.getSiteId();
+            }
 
-            assert siteE != null;
-            int siteId = siteE.getSiteId();
             log.info("Поиск по сайту: {} ...", siteForSearch.getUrl());
-                mapLemmas.forEach((k, v) -> {
-                    Lemma lemma = new Lemma();
-                    lemma = lemmaRepository.findBySiteIdAndLemma(siteId, k).orElse(null);
-                    if (lemma == null) {
-                        // not found
-
-                    } else {
-                        Index index = new Index();
-                        List<Index> indexList = indexRepository.findByLemmaId(lemma.getLemmaId()).orElse(null);
-                        indexList.forEach(System.out::println);
+            int finalSiteId = siteId;
+            mapLemmas.forEach((k, v) -> {
+                    Lemma lemma = lemmaRepository.findBySiteIdAndLemma(finalSiteId, k).orElse(null);
+                    if (lemma != null) {
+                        lemmaList.add(lemma);
+                        indexList.addAll(Objects.requireNonNull(indexRepository.findByLemmaId(lemma.getLemmaId()).orElse(null)));
                     }
                 });
-
             });
+            System.out.println("=> lemmaList:");
+            lemmaList.forEach(System.out::println);
+            System.out.println("=> indexList:");
+            indexList.forEach(System.out::println);
 
             //  2.  Исключать из полученного списка леммы, которые встречаются на слишком большом количестве страниц.
             //  Поэкспериментируйте и определите этот процент самостоятельно.
@@ -207,41 +149,59 @@ public class SearchServiceImpl implements SearchService {
             //  Алгоритм получения сниппета из веб-страницы реализуйте самостоятельно.
 
 
+        Object response;
 
 
-//
-//        if (isExistsInList(site)) {
-//
-//            SearchResponse responseTrue = new SearchResponse();
-//            responseTrue.setResult(true);
-//            responseTrue.setCount(2);
-//            SearchData searchData = new SearchData(site,
-//                    "Имя сайта",
-//                    "/path/to/page/6784",
-//                    "Заголовок страницы, которую выводим",
-//                    "Фрагмент текста, в котором найдены совпадения, <b>выделенные жирным</b>, в формате HTML",
-//                    0.93362);
-//            searchDataList.add(searchData);
-//
-//            searchData = new SearchData(site,
-//                    "Тоже имя сайта",
-//                    "/path/to/page/777",
-//                    "Заголовок страницы, которую выводим ого-го",
-//                    "Тоже фрагмент текста, в котором найдены совпадения, <b>выделенные жирным</b>, в формате HTML",
-//                    0.6);
-//            searchDataList.add(searchData);
-//            responseTrue.setData(searchDataList);
-//            response = responseTrue;
-//        } else {
-//            SearchErrorResponse responseFalse = new SearchErrorResponse();
-//            responseFalse.setResult(false);
-//            responseFalse.setError(Messages.EMPTY_SEARCH_QUERY_SPECIFIED);
-//            response = responseFalse;
-//        }
+        if (isExistsInList(site)) {
+
+            SearchResponse responseTrue = new SearchResponse();
+            responseTrue.setResult(true);
+            responseTrue.setCount(2);
+            SearchData searchData = new SearchData(site,
+                    "Имя сайта",
+                    "/path/to/page/6784",
+                    "Заголовок страницы, которую выводим",
+                    "Фрагмент текста, в котором найдены совпадения, <b>выделенные жирным</b>, в формате HTML",
+                    0.93362);
+            searchDataList.add(searchData);
+
+            searchData = new SearchData(site,
+                    "Тоже имя сайта",
+                    "/path/to/page/777",
+                    "Заголовок страницы, которую выводим ого-го",
+                    "Тоже фрагмент текста, в котором найдены совпадения, <b>выделенные жирным</b>, в формате HTML",
+                    0.6);
+            searchDataList.add(searchData);
+            responseTrue.setData(searchDataList);
+            response = responseTrue;
+        } else {
+            response = getResponseFalse();
+
+        }
 
 
-        return response1;
-        */
+
+        return response;
+    }
+
+    private Object getResponseFalse() {
+        SearchErrorResponse responseFalse = new SearchErrorResponse();
+        responseFalse.setResult(false);
+        responseFalse.setError(Messages.EMPTY_SEARCH_QUERY_SPECIFIED);
+        return responseFalse;
+    }
+
+    private List<Site> getSiteList(String site) {
+        List<Site> siteList;
+        if (site == null) {
+            // поиск по всем сайтам в списке
+            siteList = sites.getSites();
+        } else {
+            siteList = sites.getSites()
+                    .stream()
+                    .filter(site1 -> site1.getUrl().equals(site)).toList();
+        }
+        return siteList;
     }
 
     private List<String> getList() {
