@@ -10,7 +10,9 @@ import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
 import org.springframework.context.annotation.Scope;
 import org.springframework.stereotype.Component;
+import searchengine.model.IndexE;
 import searchengine.model.Page;
+import searchengine.model.SiteE;
 import searchengine.parsing.ParseLemma;
 import searchengine.repository.PageRepository;
 
@@ -108,6 +110,10 @@ public class ParsePage extends RecursiveTask<Set<String>> {
      * @param doc
      */
     public Page savePage(Document doc) {
+        if (doc == null) {
+            log.warn("Failed to save page");
+            return null;
+        }
         String content = doc.body().text();
         String title = doc.title();
         Page page = new Page(siteId, url.substring(domain.length()), code, content, title);
@@ -161,6 +167,8 @@ public class ParsePage extends RecursiveTask<Set<String>> {
     public void clearUniqueLinks() {
         uniqueLinks.clear();
     }
+
+
 }
 
 

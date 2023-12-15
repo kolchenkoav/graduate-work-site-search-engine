@@ -10,12 +10,11 @@ import searchengine.config.SiteList;
 import searchengine.controllers.DefaultController;
 import searchengine.dto.indexing.IndexingErrorResponse;
 import searchengine.dto.indexing.IndexingResponse;
-import searchengine.model.Page;
-import searchengine.model.SiteE;
-import searchengine.model.Status;
+import searchengine.model.*;
 import searchengine.parsing.siteMapping.ParsePage;
 import searchengine.parsing.siteMapping.SiteParser;
 import searchengine.parsing.siteMapping.Utils;
+import searchengine.repository.IndexRepository;
 import searchengine.repository.LemmaRepository;
 import searchengine.repository.PageRepository;
 import searchengine.repository.SiteRepository;
@@ -38,6 +37,7 @@ import javax.transaction.Transactional;
 @RequiredArgsConstructor
 public class IndexingServiceImpl implements IndexingService {
     private final LemmaRepository lemmaRepository;
+    private final IndexRepository indexRepository;
     private final SiteParser siteParser;
     private final ParsePage parsePage;
     private final SiteList siteListFromConfig;
@@ -271,8 +271,9 @@ public class IndexingServiceImpl implements IndexingService {
         } else {
             siteE.setStatus(Status.INDEXING);
             siteE.setStatusTime(Utils.setNow());
-            // TODO удаляем аккуратно леммы и индексы
 
+            String path = url.substring(domain.length());
+            deletePage(siteE.getSiteId(), path);
         }
         siteE.setLastError("");
         siteRepository.save(siteE);
@@ -283,6 +284,9 @@ public class IndexingServiceImpl implements IndexingService {
         parsePage.setUrl(url);
 
         Page page = parsePage.savePage(doc);
+        if (page == null) {
+            return false;
+        }
         siteParser.parseSinglePage(page);
 
         siteE.setStatus(Status.INDEXED);
@@ -290,6 +294,28 @@ public class IndexingServiceImpl implements IndexingService {
         siteRepository.save(siteE);
         log.info("page saved...");
         return true;
+    }
 
+    private void deletePage(int siteId, String path) {
+        log.info("The page {} by sideId: {} is deleted", path, siteId);
+        Page page = pageRepository.findBySiteIdAndPath(siteId, path);
+        if (page != null) {
+            deleteLemmas(page, siteId);
+            pageRepository.delete(page);
+        }
+    }
+
+    private void deleteLemmas(Page page, int siteId) {
+        List<IndexE> indexList = indexRepository.findByPageId(page.getPageId());
+        List<Lemma> lemmaList = new ArrayList<>();
+        indexList.forEach(e -> {
+                    Lemma lemma = lemmaRepository.findByLemmaId(e.getLemmaId());
+                    lemma.setFrequency(lemma.getFrequency() - 1);
+                    lemmaList.add(lemma);
+                }
+        );
+        lemmaRepository.saveAll(lemmaList);
+        log.info("Lemmas by pageId: {} are removed", page.getPageId());
+        lemmaRepository.deleteBySiteIdAndFrequency(siteId, 0);
     }
 }

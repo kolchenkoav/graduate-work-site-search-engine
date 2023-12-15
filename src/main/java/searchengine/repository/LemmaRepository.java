@@ -5,6 +5,7 @@ import org.springframework.stereotype.Repository;
 import searchengine.model.Lemma;
 
 import javax.transaction.Transactional;
+import java.util.List;
 import java.util.Optional;
 
 
@@ -20,5 +21,11 @@ public interface LemmaRepository extends JpaRepository<Lemma, Integer> {
     Optional<Lemma> findByLemma(String k);
 
     void deleteAllBySiteId(int siteId);
+
+    List<Lemma> findAllByLemmaId(int lemmaId);
+
+    void deleteBySiteIdAndFrequency(int siteId, int i);
+
+    Lemma findByLemmaId(int lemmaId);
 
 }
