@@ -5,6 +5,7 @@ import org.springframework.stereotype.Repository;
 import searchengine.model.Page;
 
 import javax.transaction.Transactional;
+import java.util.Collection;
 import java.util.List;
 
 
@@ -21,4 +22,9 @@ public interface PageRepository extends JpaRepository<Page, Long>  {
 
     Page findBySiteIdAndPath(int siteId, String uri);
 
+    Page findByPageId(Integer pageId);
+
+    //List<Page> findAllById(List<Integer> list);
+
+    //List<Page> findAllByPageId(List<Integer> list);
 }

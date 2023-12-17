@@ -2,10 +2,8 @@ package searchengine.services;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.openjdk.jmh.annotations.*;
 import org.springframework.stereotype.Service;
 
-import searchengine.aop.Loggable;
 import searchengine.config.Messages;
 import searchengine.config.Site;
 import searchengine.config.SiteList;
@@ -15,13 +13,16 @@ import searchengine.dto.search.SearchResponse;
 import searchengine.lemma.LemmaFinder;
 import searchengine.model.IndexE;
 import searchengine.model.Lemma;
+import searchengine.model.Page;
 import searchengine.model.SiteE;
 import searchengine.repository.IndexRepository;
 import searchengine.repository.LemmaRepository;
+import searchengine.repository.PageRepository;
 import searchengine.repository.SiteRepository;
 
 import java.util.*;
-import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.stream.Collectors;
 
 
 @Slf4j
@@ -31,11 +32,13 @@ public class SearchServiceImpl implements SearchService {
     private final LemmaRepository lemmaRepository;
     private final IndexRepository indexRepository;
     private final SiteRepository siteRepository;
+    private final PageRepository pageRepository;
 
     private final SiteList sites;
     private String wordSearch;
     private LemmaFinder lemmaFinder = LemmaFinder.getInstance();
     String content = null;
+    private int limitFrequency;
 
     //====================================================================================================
     //  Метод осуществляет поиск страниц по переданному поисковому запросу (параметр query).
@@ -73,20 +76,22 @@ public class SearchServiceImpl implements SearchService {
 
         LemmaFinder lemmaFinder = LemmaFinder.getInstance();
         Map<String, Integer> mapLemmas = lemmaFinder.collectLemmas(query);
-        if (mapLemmas==null) {
+        if (mapLemmas == null) {
             log.warn("Lemmas for search not found");
             return getResponseFalse();
         }
 
         /**
-          Список сайтов:          List<Site> siteList
-          Запрос:                 String query
-          сдвиг:                  0
-          количество результатов: 20
-          Запрос список:          Map<String, Integer> mapLemmas
+         Список сайтов:          List<Site> siteList
+         Запрос:                 String query
+         сдвиг:                  0
+         количество результатов: 20
+         Запрос список:          Map<String, Integer> mapLemmas
          */
         List<Lemma> lemmaList = new ArrayList<>();
-        List<IndexE> indexList = new ArrayList<>();
+        List<Lemma> finalLemmaList = lemmaList;
+        limitFrequency = 300; //TODO limit
+        AtomicBoolean isSearchWordMissing = new AtomicBoolean(false);
         siteList.forEach(siteForSearch -> {
             SiteE siteE = siteRepository.findByName(siteForSearch.getName()).orElse(null);
             int siteId = 0;
@@ -97,56 +102,167 @@ public class SearchServiceImpl implements SearchService {
             log.info("Поиск по сайту: {} ...", siteForSearch.getUrl());
             int finalSiteId = siteId;
             mapLemmas.forEach((k, v) -> {
-                    Lemma lemma = lemmaRepository.findBySiteIdAndLemma(finalSiteId, k).orElse(null);
-                    if (lemma != null) {
-                        lemmaList.add(lemma);
-                        indexList.addAll(Objects.requireNonNull(indexRepository.findByLemmaId(lemma.getLemmaId()).orElse(null)));
+                Lemma lemma = lemmaRepository.findBySiteIdAndLemma(finalSiteId, k).orElse(null);
+                if (lemma != null) {
+                    /** 2. Исключает из списка леммы, которые встречаются на слишком большом количестве страниц */
+                    if (lemma.getFrequency() < limitFrequency) {
+                        finalLemmaList.add(lemma);
+                        //indexList.addAll(Objects.requireNonNull(indexRepository.findByLemmaId(lemma.getLemmaId()).orElse(null)));
                     }
-                });
+                } else {
+                    log.warn("search word: '{}' not found in database", k);
+                    isSearchWordMissing.set(true);
+                }
             });
-            System.out.println("=> lemmaList:");
-            lemmaList.forEach(System.out::println);
-            System.out.println("=> indexList:");
-            indexList.forEach(System.out::println);
+        });
 
-            //  2.  Исключать из полученного списка леммы, которые встречаются на слишком большом количестве страниц.
-            //  Поэкспериментируйте и определите этот процент самостоятельно.
+        if (isSearchWordMissing.get()) {
 
-            //  3.  Сортировать леммы в порядке увеличения частоты встречаемости
-            //  (по возрастанию значения поля frequency) — от самых редких до самых частых.
+            return getResponseFalse();
+        }
 
-            //  4.  По первой, самой редкой лемме из списка, находить все страницы, на которых она встречается.
-            //  Далее искать соответствия следующей леммы из этого списка страниц,
-            //  а затем повторять операцию по каждой следующей лемме.
-            //  Список страниц при этом на каждой итерации должен уменьшаться
+        // 3.
+        lemmaList = finalLemmaList.stream().sorted(Comparator.comparingInt(Lemma::getFrequency)).collect(Collectors.toList());
 
-            //  5.  Если в итоге не осталось ни одной страницы, то выводить пустой список.
-
-
-            //  6.  Если страницы найдены, рассчитывать по каждой из них релевантность
-            //  (и выводить её потом, см. ниже) и возвращать.
+        System.out.println();
+        System.out.println("=> lemmaList:");
+        lemmaList.forEach(System.out::println);
+        if (lemmaList.size() == 0) {
+            log.warn("lemmaList.size = 0");
+            return getResponseFalse();
+        }
 
 
-            //  7.  Для каждой страницы рассчитывать абсолютную релевантность — сумму всех rank всех найденных
-            //  на странице лемм (из таблицы index), которая делится на максимальное значение
-            //  этой абсолютной релевантности для всех найденных страниц.
+        // 4. По первой, самой редкой лемме из списка, находить все страницы, на которых она встречается
+        List<IndexE> indexList = new ArrayList<>(Objects.requireNonNull(indexRepository.findByLemmaId(lemmaList.get(0).getLemmaId()).orElse(null)));
+        System.out.println("=> indexList: (first lemma)");
+        indexList.forEach(System.out::println);
+
+        List<Page> pageList = new ArrayList<>();
+        for (IndexE indexE : indexList) {
+            Page page = pageRepository.findByPageId(indexE.getPageId());
+            if (page != null) {
+                pageList.add(page);
+            }
+        }
+
+        System.out.println("=> pageList:");
+        pageList.forEach(System.out::println);
+
+        int i = 1;
+        while (i < lemmaList.size()) {
+            int lemmaId = lemmaList.get(i).getLemmaId();
+            System.out.println("*** " + lemmaId);
+            List<IndexE> indexList2 = new ArrayList<>(Objects.requireNonNull(indexRepository.findByLemmaId(lemmaId).orElse(null)));
+
+            pageList.removeIf(page -> indexList2.stream()
+                    .noneMatch(indexE -> indexE.getPageId() == page.getPageId()));
+            i++;
+        }
+
+        System.out.println("=> после прохода pageList:");
+        pageList.forEach(System.out::println);
+
+        //  Далее искать соответствия следующей леммы из этого списка страниц,
+        //  а затем повторять операцию по каждой следующей лемме.
+        //  Список страниц при этом на каждой итерации должен уменьшаться
+
+        //  5.  Если в итоге не осталось ни одной страницы, то выводить пустой список.
+        //TODO реализовать
 
 
-            //  8.  Сортировать страницы по убыванию релевантности (от большей к меньшей)
-            //  и выдавать в виде списка объектов со следующими полями:
-            //
-            // uri — путь к странице вида /path/to/page/6784;
-            // title — заголовок страницы;
-            // snippet — фрагмент текста, в котором найдены совпадения (см. ниже);
-            // relevance — релевантность страницы (см. выше формулу расчёта).
+        //  6.  Если страницы найдены, рассчитывать по каждой из них релевантность
+        //  (и выводить её потом, см. ниже) и возвращать.
+        /** релевантность */
 
 
-            //  9.  Сниппеты — фрагменты текстов, в которых найдены совпадения, для всех страниц должны быть
-            //  примерно одинаковой длины — такие, чтобы на странице
-            //  с результатами поиска они занимали примерно три строки.
-            //  В них необходимо выделять жирным совпадения с исходным поисковым запросом.
-            //  Выделение должно происходить в формате HTML при помощи тега <b>.
-            //  Алгоритм получения сниппета из веб-страницы реализуйте самостоятельно.
+        //  7.  Для каждой страницы рассчитывать абсолютную релевантность — сумму всех rank всех найденных
+        //  на странице лемм (из таблицы index), которая делится на максимальное значение
+        //  этой абсолютной релевантности для всех найденных страниц.
+
+        //          lem1 lem2
+        //      0   1    2    3    4        K -кол-во лемм
+        //  0   [1] [r1] [r2] [ra] [ro]
+        //  1   [2] []   []   [ra] [ro]
+        //
+        //  J -кол-во страниц
+        double[][] relevance = new double[indexList.size()][lemmaList.size() + 3];
+
+        // проход по страницам
+        for (int j = 0; j < indexList.size(); j++) {
+            double sumAR = 0;
+            // проход по № + (кол-во лемм) + АР + ОР
+            for (int k = 0; k < lemmaList.size() + 3; k++) {
+                if (k == 0) {
+                    relevance[j][k] = j + 1;
+                    continue;
+                }
+
+                //  lem(i)
+                //System.out.println("k: "+k);
+
+                if (k < lemmaList.size()+1) {
+                    //System.out.println((j+1)+" lemma(" + (k - 1) + "): " + lemmaList.get(k - 1));
+
+                    if (k == 1) {
+                        //System.out.println((j+1)+" rank(" + (0) + "): " + indexList.get(k-1)+" -indexList.get("+(k-1)+")");
+                        relevance[j][k] = indexList.get(k-1).getRank();
+                        sumAR += relevance[j][k];
+                        continue;
+                    }
+                    if (k <= lemmaList.size()) {
+                        List<IndexE> indexList2 = new ArrayList<>(Objects.requireNonNull(indexRepository.findByLemmaId(lemmaList.get(k-1).getLemmaId()).orElse(null)));
+                        //System.out.println((j+1)+" rank(" + (k - 1) + "): " + indexList2.get(k-1)+" -indexList2.get("+(k-1)+")");
+                        relevance[j][k] = indexList2.get(k-1).getRank();
+                        sumAR += relevance[j][k];
+                    }
+                    //System.out.println();
+                    continue;
+                }
+                if (k == lemmaList.size()+1) {
+                    System.out.println("AR for "+ (j + 1));
+                    relevance[j][k] = sumAR;
+                    continue;
+                }
+                if (k == lemmaList.size()+2) {
+                    //System.out.println("OR for "+ (j + 1));
+                }
+
+//                int v = lemmaList.size() + 2;
+//                if (j < v) {
+//                    for (int l = 0; l < indexList.size(); l++) {
+//                        int v1 = k + l;
+//                        log.info("j: {} k: {} v: {} v1: {}", j, k, v, v1);
+//                        relevance[j][v1] = indexList.get(j).getRank();
+//                    }
+//                    continue;
+//                }
+//                if (j > indexList.size() + 1) {
+//                    // absolut
+//                    relevance[j][k] = 7;
+//                    // otnosit
+//                    relevance[j][k] = 11;
+//                }
+
+            }
+        }
+        System.out.println(Arrays.deepToString(relevance));
+
+        //  8.  Сортировать страницы по убыванию релевантности (от большей к меньшей)
+        //  и выдавать в виде списка объектов со следующими полями:
+        //
+        // uri — путь к странице вида /path/to/page/6784;
+        // title — заголовок страницы;
+        // snippet — фрагмент текста, в котором найдены совпадения (см. ниже);
+        // relevance — релевантность страницы (см. выше формулу расчёта).
+
+
+        //  9.  Сниппеты — фрагменты текстов, в которых найдены совпадения, для всех страниц должны быть
+        //  примерно одинаковой длины — такие, чтобы на странице
+        //  с результатами поиска они занимали примерно три строки.
+        //  В них необходимо выделять жирным совпадения с исходным поисковым запросом.
+        //  Выделение должно происходить в формате HTML при помощи тега <b>.
+        //  Алгоритм получения сниппета из веб-страницы реализуйте самостоятельно.
 
 
         Object response;
@@ -179,9 +295,22 @@ public class SearchServiceImpl implements SearchService {
 
         }
 
-
-
         return response;
+    }
+
+    /**
+     * Исключает из списка леммы, которые встречаются на слишком большом количестве страниц.
+     * Поэкспериментируйте и определите этот процент самостоятельно.
+     *
+     * @param lemmaList список лемм
+     * @return обработанный список лемм
+     */
+    private List<Lemma> ExcludeLemmasFromTheResultingList(List<Lemma> lemmaList) {
+        //TODO limitFrequency определить
+        limitFrequency = 3;
+        return lemmaList.stream()
+                .filter(lemma -> lemma.getFrequency() < limitFrequency)
+                .collect(Collectors.toList());
     }
 
     private Object getResponseFalse() {
@@ -205,12 +334,12 @@ public class SearchServiceImpl implements SearchService {
     }
 
     private List<String> getList() {
-        String wordStartsWith = wordSearch.substring(0, (wordSearch.length()/2)+1).toLowerCase(Locale.ROOT);
+        String wordStartsWith = wordSearch.substring(0, (wordSearch.length() / 2) + 1).toLowerCase(Locale.ROOT);
         log.info("wordSearch: {}", wordSearch);
 
         content = getContentFrom();
         List<String> list = Arrays.stream(content.split(" "))
-                .filter(f->f.toLowerCase(Locale.ROOT).startsWith(wordStartsWith))
+                .filter(f -> f.toLowerCase(Locale.ROOT).startsWith(wordStartsWith))
                 .filter(f -> getOneLemma(f, wordSearch))
                 .findFirst().stream().toList();
         log.info("list.size: {}", list.size());
@@ -225,7 +354,7 @@ public class SearchServiceImpl implements SearchService {
         beginIndex = Math.max(index - 100, 0);
         endIndex = Math.min(index + 100, content.length());
         log.info("index: {} beginIndex: {} endIndex: {}", index, beginIndex, endIndex);
-        return "...< "+content.substring(beginIndex, endIndex).replace(s, "<b>" + s + "</b>")+" >...";
+        return "...< " + content.substring(beginIndex, endIndex).replace(s, "<b>" + s + "</b>") + " >...";
     }
 
     private boolean getOneLemma(String f, String wordSearch) {

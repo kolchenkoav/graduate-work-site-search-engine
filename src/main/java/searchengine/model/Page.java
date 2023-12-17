@@ -68,7 +68,7 @@ public class Page {                            // implements Serializable
                 ", siteId=" + siteId +
                 ", path='" + path + '\'' +
                 ", code=" + code +
-                ", content(trim by 100)='" + content.substring(0, 100) + '\'' +
+                ", content(trim by 100)='" + content.substring(0, 30) + '\'' +
                 '}';
     }
 }
