@@ -8,6 +8,12 @@ indexing-settings:
 #      name: Лучшие платформы для сайтов
 #    - url: https://jsoup.org
 #      name: jsoup Java HTML parser
+    - url: https://lenta.ru
+      name: Lenta.ru
+    - url: https://www.business-gazeta.ru
+      name: business gazeta
+    - url: https://a24.press
+      name: Все новости Астрахани
 
 server:
   port: 8080
