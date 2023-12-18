@@ -21,4 +21,8 @@
 * Для поиска необходимо перейти в **SEARCH**
 
 ## 2. Запуск jar файла
-В коммандной строке набрать ' java -jar SearchEngine-1.0-SNAPSHOT.jar'
+* Для работы приложения необходимо запустить [MySQL](https://dev.mysql.com/downloads/installer/) (можно в [docker](https://www.docker.com/products/docker-desktop/))
+* Настройки подключения к MySQL в **[application.yaml](application.yaml)**. Там же прописываются сайты для индексации
+* Необходимо скопировать **SearchEngine-1.0-SNAPSHOT.jar** и **[application.yaml](application.yaml)** в папку
+* В этой папке запускаем терминал (Command prompt  или  git bash) 
+* В коммандной строке набрать  *java -jar SearchEngine-1.0-SNAPSHOT.jar*
