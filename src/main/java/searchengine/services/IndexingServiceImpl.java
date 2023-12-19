@@ -133,10 +133,10 @@ public class IndexingServiceImpl implements IndexingService {
         siteId = siteE.getSiteId();
         siteEList.add(siteE);
 
-        /** подготовка данных */
+        /* подготовка данных */
         siteParser.initSiteParser(siteId, Utils.getProtocolAndDomain(url), url);
 
-        /** вызов парсинга сайта */
+        /* вызов парсинга сайта */
         siteParser.getLinks();
     }
 

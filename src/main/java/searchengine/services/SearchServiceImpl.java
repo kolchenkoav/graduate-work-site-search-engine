@@ -32,9 +32,9 @@ public class SearchServiceImpl implements SearchService {
     private final PageRepository pageRepository;
 
     private final SiteList sites;
-    private String wordSearch;
-    private LemmaFinder lemmaFinder = LemmaFinder.getInstance();
-    String content = null;
+    //private String wordSearch;
+    private final LemmaFinder lemmaFinder = LemmaFinder.getInstance();
+    //String content = null;
     private int limitFrequency;
     private double[][] relevance;
     private double maxRelevance;
@@ -71,18 +71,17 @@ public class SearchServiceImpl implements SearchService {
 
         List<Site> siteList = getSiteList(site);
         if (siteList == null) {
-            log.warn("Search site not found");
+            log.warn("Search site {} not found", site);
             return getResponseFalse();
         }
 
-        LemmaFinder lemmaFinder = LemmaFinder.getInstance();
-        Map<String, Integer> mapLemmas = lemmaFinder.collectLemmas(query);
+        Map<String, Integer> mapLemmas = Objects.requireNonNull(lemmaFinder).collectLemmas(query);
         if (mapLemmas == null) {
             log.warn("Lemmas for search not found");
             return getResponseFalse();
         }
 
-        /**
+        /*
          Список сайтов:          List<Site> siteList
          Запрос:                 String query
          сдвиг:                  0
@@ -106,7 +105,7 @@ public class SearchServiceImpl implements SearchService {
                 Lemma lemma = lemmaRepository.findBySiteIdAndLemma(finalSiteId, k).orElse(null);
                 if (lemma != null) {
                     isSearchWordMissing.set(false);
-                    /** 2. Исключает из списка леммы, которые встречаются на слишком большом количестве страниц */
+                    /* 2. Исключает из списка леммы, которые встречаются на слишком большом количестве страниц */
                     if (lemma.getFrequency() < limitFrequency) {
                         finalLemmaList.add(lemma);
                     }
@@ -139,10 +138,9 @@ public class SearchServiceImpl implements SearchService {
             // заполняем
             for (int j = 0; j < relevance.length; j++) {
                 SearchResults results;
-                Iterator<SearchResults> iterator = searchResultsList.iterator();
-                while (iterator.hasNext()) {
-                    results = iterator.next();
-                    int ind = relevance[j].length-1;
+                for (SearchResults searchResults : searchResultsList) {
+                    results = searchResults;
+                    int ind = relevance[j].length - 1;
                     if (results.getNumber() == (j + 1) && results.getSiteId() == i) {
                         results.setRelevance(relevance[j][ind]);
                     }
@@ -395,8 +393,8 @@ public class SearchServiceImpl implements SearchService {
     private boolean getOneLemma(String f, String wordSearch) {
         boolean bool;
 
-        Map<String, Integer> lemma1 = lemmaFinder.collectLemmas(f);
-        Map<String, Integer> lemma2 = lemmaFinder.collectLemmas(wordSearch);
+        Map<String, Integer> lemma1 = Objects.requireNonNull(lemmaFinder).collectLemmas(f);
+        Map<String, Integer> lemma2 = Objects.requireNonNull(lemmaFinder).collectLemmas(wordSearch);
         String s1 = lemma1.keySet().toString();
         String s2 = lemma2.keySet().toString();
         bool = s1.equals(s2);
@@ -408,10 +406,6 @@ public class SearchServiceImpl implements SearchService {
         return bool;
     }
 
-    private String getContentFrom() {
-        return "Конструкторы сайтов CMS (движки) Хостинг Статьи Примеры Шаблоны Как создать сайт фотографа " +
-                "обзор и отзывы Wix.com - обзор и отзывы Nethouse.ru - обзор и отзывы Tilda.cc - обзор и отзывы © 2023";
-    }
 
     private boolean isExistsInList(String site) {
         List<Site> siteList = sites.getSites();
