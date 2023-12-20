@@ -87,10 +87,10 @@ public class LemmaFinder {
     }
 
     /**
-     * Метод разделяет текст на слова, находит все леммы и считает их количество.
+     * Метод разделяет текст на слова
      *
      * @param text текст из которого будут выбираться леммы
-     * @return ключ является леммой, а значение количеством найденных лемм
+     * @return лист лемм
      */
     public List<String> getLemmaList(String text) {
         String[] words = splitWords(text, true);
