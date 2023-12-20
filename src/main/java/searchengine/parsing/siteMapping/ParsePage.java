@@ -107,7 +107,7 @@ public class ParsePage extends RecursiveTask<Set<String>> {
     /**
      * Сохраняет новую страницу
      *
-     * @param doc
+     * @param doc документ(страница) для сохранения
      */
     public Page savePage(Document doc) {
         if (doc == null) {

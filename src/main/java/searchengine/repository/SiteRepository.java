@@ -20,4 +20,5 @@ public interface SiteRepository extends JpaRepository<SiteE, Integer> {
 
     void deleteAllByName(String name);
 
+    boolean existsByName(String name);
 }

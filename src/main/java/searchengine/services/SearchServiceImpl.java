@@ -34,7 +34,6 @@ public class SearchServiceImpl implements SearchService {
     private final SiteList sites;
     //private String wordSearch;
     private final LemmaFinder lemmaFinder = LemmaFinder.getInstance();
-    //String content = null;
     private int limitFrequency;
     private double[][] relevance;
     private double maxRelevance;
@@ -65,88 +64,93 @@ public class SearchServiceImpl implements SearchService {
     //      (параметр необязательный; если не установлен, то значение по умолчанию равно 20).
     @Override
     public Object search(String query, String site, int offset, int limit) {
-        searchResultsList = new ArrayList<>();
-        List<SearchData> searchDataList = new ArrayList<>();
         log.info("search => query: '{}'  site: '{}' offset: {} limit: {}", query, site, offset, limit);
 
-        List<Site> siteList = getSiteList(site);
-        if (siteList == null) {
+        List<Integer> siteIdList = getSiteIdList(site);
+        if (siteIdList == null) {
             log.warn("Search site {} not found", site);
             return getResponseFalse();
         }
 
-        Map<String, Integer> mapLemmas = Objects.requireNonNull(lemmaFinder).collectLemmas(query);
-        if (mapLemmas == null) {
-            log.warn("Lemmas for search not found");
+        List<String> lemmaListFromQuery = Objects.requireNonNull(lemmaFinder).collectLemmas(query)
+                .keySet()
+                .stream()
+                .toList();
+        if (lemmaListFromQuery == null) {
+            log.warn("Lemmas from query:'{}' not found", query);
+            return getResponseFalse();
+        }
+
+        searchResultsList = new ArrayList<>();
+        List<SearchData> searchDataList = new ArrayList<>();
+
+
+        List<Lemma> lemmaList = new ArrayList<>();
+        for (Integer siteId: siteIdList) {
+            for (String lem: lemmaListFromQuery) {
+                lemmaRepository.findBySiteIdAndLemma(siteId, lem).ifPresent(lemmaList::add);
+            }
+        }
+        if (lemmaList.size() == 0) {
+            log.warn("search lemmas: '{}' not found in database", lemmaListFromQuery
+                    .stream()
+                    .map(s -> s+" ")
+                    .collect(Collectors.joining()));
             return getResponseFalse();
         }
 
         /*
-         Список сайтов:          List<Site> siteList
-         Запрос:                 String query
-         сдвиг:                  0
-         количество результатов: 20
-         Запрос список:          Map<String, Integer> mapLemmas
+         сдвиг:                     offset
+         количество результатов:    limit
+         Список Id сайтов:          List<Integer> siteIdList
+         Лемма список из запроса:   List<String> lemmaListFromQuery
+         Лемма из БД:               List<Lemma> lemmaList
          */
-        List<Lemma> lemmaList = new ArrayList<>();
-        List<Lemma> finalLemmaList = lemmaList;
-        limitFrequency = 300; //TODO limit
-        AtomicBoolean isSearchWordMissing = new AtomicBoolean(true);
-        siteList.forEach(siteForSearch -> {
-            SiteE siteE = siteRepository.findByName(siteForSearch.getName()).orElse(null);
-            int siteId = 0;
-            if (siteE != null) {
-                siteId = siteE.getSiteId();
+
+        /* 2. Исключает из списка леммы, которые встречаются на слишком большом количестве страниц */
+        Iterator<Lemma> iterator = lemmaList.iterator();
+        while (iterator.hasNext()) {
+            Lemma lemma = iterator.next();
+            int countPages = pageRepository.countBySiteId(lemma.getSiteId());
+
+            limitFrequency = countPages;
+            log.info("siteId: {} countPages: {} Frequency: {}", lemma.getSiteId(), countPages, lemma.getFrequency());
+            if (lemma.getFrequency() >= limitFrequency && countPages > 10) {
+                iterator.remove();
             }
-
-            log.info("Поиск по сайту: {} ...", siteForSearch.getUrl());
-            int finalSiteId = siteId;
-            mapLemmas.forEach((k, v) -> {
-                Lemma lemma = lemmaRepository.findBySiteIdAndLemma(finalSiteId, k).orElse(null);
-                if (lemma != null) {
-                    isSearchWordMissing.set(false);
-                    /* 2. Исключает из списка леммы, которые встречаются на слишком большом количестве страниц */
-                    if (lemma.getFrequency() < limitFrequency) {
-                        finalLemmaList.add(lemma);
-                    }
-                } else {
-                    log.warn("search word: '{}' not found in database", k);
-                }
-            });
-        });
-
-        if (isSearchWordMissing.get()) {
-            return getResponseFalse();
         }
-
-        // 3.
-        lemmaList = finalLemmaList.stream().sorted(Comparator.comparingInt(Lemma::getFrequency)).collect(Collectors.toList());
         if (lemmaList.size() == 0) {
             log.warn("lemmaList.size = 0");
             return getResponseFalse();
         }
 
+        // 3 Сортировка
+        lemmaList = lemmaList.stream().sorted(Comparator.comparingInt(Lemma::getFrequency)).collect(Collectors.toList());
 
-        List<Integer> list = lemmaList.stream().mapToInt(Lemma::getSiteId).distinct().boxed().toList();
-        for (Integer i : list) {
-            FormationForOneSite(lemmaList.stream().filter(lemma -> lemma.getSiteId() == i).toList());
+        lemmaList.forEach(System.out::println);
 
-            System.out.println();
-            System.out.println("========== Fill relevance ========= siteId: " + i);
-            System.out.println(Arrays.deepToString(relevance));
+        if (true) {return getResponseFalse();}
 
-            // заполняем
-            for (int j = 0; j < relevance.length; j++) {
-                SearchResults results;
-                for (SearchResults searchResults : searchResultsList) {
-                    results = searchResults;
-                    int ind = relevance[j].length - 1;
-                    if (results.getNumber() == (j + 1) && results.getSiteId() == i) {
-                        results.setRelevance(relevance[j][ind]);
-                    }
-                }
-            }
-        }
+//        List<Integer> list = lemmaList.stream().mapToInt(Lemma::getSiteId).distinct().boxed().toList();
+//        for (Integer i : list) {
+//            FormationForOneSite(lemmaList.stream().filter(lemma -> lemma.getSiteId() == i).toList());
+//
+//            System.out.println();
+//            System.out.println("========== Fill relevance ========= siteId: " + i);
+//            System.out.println(Arrays.deepToString(relevance));
+//
+//            // заполняем
+//            for (int j = 0; j < relevance.length; j++) {
+//                SearchResults results;
+//                for (SearchResults searchResults : searchResultsList) {
+//                    results = searchResults;
+//                    int ind = relevance[j].length - 1;
+//                    if (results.getNumber() == (j + 1) && results.getSiteId() == i) {
+//                        results.setRelevance(relevance[j][ind]);
+//                    }
+//                }
+//            }
+//        }
 
         //  8.  Сортировать страницы по убыванию релевантности (от большей к меньшей)
         //  и выдавать в виде списка объектов со следующими полями:
@@ -162,8 +166,6 @@ public class SearchServiceImpl implements SearchService {
                 .toList();
 
 
-
-
         //  9.  Сниппеты — фрагменты текстов, в которых найдены совпадения, для всех страниц должны быть
         //  примерно одинаковой длины — такие, чтобы на странице
         //  с результатами поиска они занимали примерно три строки.
@@ -171,20 +173,20 @@ public class SearchServiceImpl implements SearchService {
         //  Выделение должно происходить в формате HTML при помощи тега <b>.
         //  Алгоритм получения сниппета из веб-страницы реализуйте самостоятельно.
 
-        Iterator<SearchResults> iterator = searchResultsList.iterator();
-        SearchResults results;
-        while (iterator.hasNext()) {
-            results = iterator.next();
-            Page page = pageRepository.findByPageId(results.getPageId());
-            results.setTitle(page.getTitle());
-            results.setUrl(page.getPath());
-
-            String snippet = getSnippet(page.getContent(), lemmaList.stream()
-                    .map(Lemma::getLemma)
-                    .collect(Collectors.toList()));
-
-            results.setSnippet(snippet);
-        }
+//        Iterator<SearchResults> iterator = searchResultsList.iterator();
+//        SearchResults results;
+//        while (iterator.hasNext()) {
+//            results = iterator.next();
+//            Page page = pageRepository.findByPageId(results.getPageId());
+//            results.setTitle(page.getTitle());
+//            results.setUrl(page.getPath());
+//
+////            String snippet = getSnippet(page.getContent(), lemmaList.stream()
+////                    .map(Lemma::getLemma)
+////                    .collect(Collectors.toList()));
+////
+////            results.setSnippet(snippet);
+//        }
 
         System.out.println();
         System.out.println("searchResultsList");
@@ -222,6 +224,37 @@ public class SearchServiceImpl implements SearchService {
         }
 
         return response;
+    }
+
+    /**
+     * Получить список Id сайтов из конфигурации которые есть в БД
+     * @param site if null - all sites
+     * @return list of siteIds
+     */
+    private List<Integer> getSiteIdList(String site) {
+        List<Integer> siteIdList = new ArrayList<>();
+        if (site == null) {
+            List<Site> siteList = sites.getSites();
+            siteIdList = siteList.stream()
+                    .map(Site::getName)
+                    .map(s -> {
+                        if (siteRepository.existsByName(s)) {
+                            return siteRepository.findSiteEByName(s).get(0).getSiteId();
+                        } else {
+                            return 0;
+                        }
+                    }).toList();
+        } else {
+            Optional<Site> siteFromConfig = sites.getSites().stream()
+                    .filter(site1 -> site1.getUrl().equals(site)).findFirst();
+            if (siteFromConfig.isPresent()) {
+                SiteE siteE = siteRepository.findByName(siteFromConfig.get().getName()).orElse(null);
+                if (siteE != null) {
+                    siteIdList.add(siteE.getSiteId());
+                }
+            }
+        }
+        return siteIdList.stream().filter(integer -> integer != 0).toList();
     }
 
     private void FormationForOneSite(List<Lemma> lemmaList) {
@@ -383,7 +416,7 @@ public class SearchServiceImpl implements SearchService {
 
     private String getSnippet(String content, List<String> list) {
         String result = content;
-        for (String s: list) {
+        for (String s : list) {
             List<String> list1 = getList(s, content);
             result = getSnippet(result, s);
         }

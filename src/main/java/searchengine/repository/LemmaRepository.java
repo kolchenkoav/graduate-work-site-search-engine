@@ -28,4 +28,6 @@ public interface LemmaRepository extends JpaRepository<Lemma, Integer> {
 
     Lemma findByLemmaId(int lemmaId);
 
+    //List<Integer> getDistinctSiteId();
+    boolean existsBySiteId(int siteId);
 }
