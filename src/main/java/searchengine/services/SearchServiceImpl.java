@@ -123,6 +123,9 @@ public class SearchServiceImpl implements SearchService {
             return getResponseFalse();
         }
 
+        // siteIdList получает id из lemmaList
+        siteIdList = lemmaList.stream().map(Lemma::getSiteId).distinct().toList();
+
         // 3 Сортировка
         lemmaList = lemmaList.stream().sorted(Comparator.comparingInt(Lemma::getFrequency)).collect(Collectors.toList());
 
@@ -131,6 +134,8 @@ public class SearchServiceImpl implements SearchService {
 
         //List<Integer> list = lemmaList.stream().mapToInt(Lemma::getSiteId).distinct().boxed().toList();
         for (Integer i : siteIdList) {
+            //System.out.println("i: " + i);
+            //log.info("lemmaList.size: {} ", String.valueOf(lemmaList.stream().filter(lemma -> lemma.getSiteId() == i).toList().size()));
             FormationForOneSite(lemmaList.stream().filter(lemma -> lemma.getSiteId() == i).toList());
 
             System.out.println();
@@ -175,6 +180,8 @@ public class SearchServiceImpl implements SearchService {
 
         System.out.println("** lemmaListFromQuery");
         lemmaListFromQuery.forEach(System.out::println);
+        System.out.println();
+        System.out.println("*******************************************");
 
 
         Iterator<SearchResults> iteratorSR = searchResultsList.iterator();
@@ -194,40 +201,33 @@ public class SearchServiceImpl implements SearchService {
         System.out.println("searchResultsList");
         searchResultsList.forEach(System.out::println);
 
-        if (true) {
-            return getResponseFalse();
-        }
-
+//        if (true) {
+//            return getResponseFalse();
+//        }
         Object response;
+        response = getResponseFalse();
 
-
-        if (isExistsInList(site)) {
-
-            SearchResponse responseTrue = new SearchResponse();
-            responseTrue.setResult(true);
-            responseTrue.setCount(2);
-            SearchData searchData = new SearchData(site,
-                    "Имя сайта",
-                    "/path/to/page/6784",
-                    "Заголовок страницы, которую выводим",
-                    "Фрагмент текста, в котором найдены совпадения, <b>выделенные жирным</b>, в формате HTML",
-                    0.93362);
-            searchDataList.add(searchData);
-
-            searchData = new SearchData(site,
-                    "Тоже имя сайта",
-                    "/path/to/page/777",
-                    "Заголовок страницы, которую выводим ого-го",
-                    "Тоже фрагмент текста, в котором найдены совпадения, <b>выделенные жирным</b>, в формате HTML",
-                    0.6);
-            searchDataList.add(searchData);
-            responseTrue.setData(searchDataList);
-            response = responseTrue;
-        } else {
-            response = getResponseFalse();
-
+        if (searchResultsList.size() == 0) {
+            return response;
         }
+        SearchResponse responseTrue = new SearchResponse();
 
+        responseTrue.setResult(true);
+        responseTrue.setCount(searchResultsList.size());
+        for (int i = 0; i < searchResultsList.size(); i++) {
+            SiteE siteE = siteRepository.getSiteEBySiteId(searchResultsList.get(i).getSiteId());
+            String url = siteE.getUrl()+searchResultsList.get(i).getUrl();
+            System.out.println("===> url: " + url);
+            SearchData searchData = new SearchData(site,
+                    siteE.getName(),
+                    url,
+                    searchResultsList.get(i).getTitle(),
+                    searchResultsList.get(i).getSnippet(),
+                    searchResultsList.get(i).getRelevance());
+            searchDataList.add(searchData);
+        }
+        responseTrue.setData(searchDataList);
+        response = responseTrue;
         return response;
     }
 
@@ -406,65 +406,120 @@ public class SearchServiceImpl implements SearchService {
     }
 
     private String getSnippet2(String content, List<Lemma> lemmaList) {
-        System.out.println("*** content");
-        System.out.println(content);
-
-//        Map<String, Integer> lemma = Objects.requireNonNull(lemmaFinder).collectLemmas(content);
-//        String contentLemmas = getLemmaList(content)
-        // проход по content
+        log.info("*** content: {}", content);
 
         long startTime = System.currentTimeMillis();
-        List<String> splitContent = Arrays.stream(content.toLowerCase(Locale.ROOT)
+
+        List<String> splitContent = Arrays.stream(content
+                        .toLowerCase(Locale.ROOT)
                 .trim()
                 .split("\\s+"))
                 //.parallel()
                 .toList();
-        //int currentPosition = 0;
 
-        // TODO
-        Map<String, List<Integer>> listPosition = new HashMap<>();
+        Map<String, Boolean> mapFoundWords = new HashMap<>();
+        for (Lemma lemma: lemmaList) {
+            mapFoundWords.put(lemma.getLemma(), false);
+        }
+        //mapFoundWords.forEach((k, v) -> log.info("k: {} v:{}", k, v));
+
+        Map<String, Integer> listPosition = new HashMap<>();
+        boolean b = false;
         for (int i = 0; i < splitContent.size(); i++) {
             String word = splitContent.get(i);
 
-            String w = Objects.requireNonNull(lemmaFinder).getLemma(word);
+
+            String regex = "[^A-Za-zА-Яа-я0-9]";
+            word = word.replaceAll(regex, " ").trim();
+            String[] sw = word.split(" ");
+            if (sw.length > 1) {
+                word = sw[0];
+            }
+
+            String wordLemma = Objects.requireNonNull(lemmaFinder).getLemma(word);
+
             for (Lemma lemma: lemmaList) {
-                if (lemma.getLemma().equals(w)) {
-                    //listPosition.put(w, )
-                    log.info("word: {}   w: {} i: {}", word, w, i);
+                if (lemma.getLemma().equalsIgnoreCase(wordLemma)) {
+                    listPosition.put(wordLemma, i);
+                    mapFoundWords.put(wordLemma, true);
+                    //log.info("word: {}   wordLemma: {} i: {}", word, wordLemma, i);
+
+                    for (Boolean bool: mapFoundWords.values()) {
+                        b = bool;
+                    }
                 }
             }
+//            boolean b1 = false;
+//            if (listPosition.size() > 0) {
+//                int prevPosition = listPosition.values().stream().toList().get(0);
+//                for (int j = 1; j < listPosition.size(); j++) {
+//                    b1 = listPosition.values().stream().toList().get(j) - prevPosition < 3;
+//                    System.out.println("b1: " + b1);
+//                }
+//            }
+            if (b) { //&& b1 && mapFoundWords.size() == lemmaList.size()
+                break;
+            }
         }
-        System.out.println("listPosition:");
-        //listPosition.forEach(System.out::println);
 
-//        long endTime = System.currentTimeMillis();
-//        long timeElapsed = endTime - startTime;
-//        System.out.println("timeElapsed: " + timeElapsed);
-//
-//        System.out.println("***** splitContent");
-//        System.out.println(splitContent);
-//
-        int index = 0;//content.indexOf(s);
+        mapFoundWords.forEach((k, v) -> log.info("mapFoundWords : k: {} v:{}", k, v));
+        System.out.println();
+        listPosition.forEach((k, v) -> log.info("listPosition: k: {} v:{}", k, v));
+
+        //  Get snippet from pageId: 10
+        //  *** content: Главное Россия Мир Бывший СССР Экономика Силовые структуры Наука и техни
+        //  listPosition: k: цена v:55
+        //  listPosition: k: яйцо v:57
+        String snippet = "";
+        List<Integer> listPos = listPosition.values().stream().toList();
+        System.out.println("listPos: " + listPos.get(0));
+
+        int index = 0;
+        for (int i = 0; i < listPos.get(0); i++) {
+            index += splitContent.get(i).length() + 1;
+        }
+
         int beginIndex;
         int endIndex;
 
-        beginIndex = Math.max(index - 100, 0);
-        endIndex = Math.min(index + 100, content.length());
-//        log.info("index: {} beginIndex: {} endIndex: {}", index, beginIndex, endIndex);
-        return "";//content.substring(beginIndex, endIndex).replace(s, "<b>" + s + "</b>");
+        beginIndex = Math.max(index - 135, 0);
+        endIndex = Math.min(index + 135, content.length());
+        snippet = "<... " + content.substring(beginIndex, endIndex) + " ...>";
+
+        //log.info("index: {} beginIndex: {} endIndex: {}", index, beginIndex, endIndex);
+
+        for (int i = 0; i < listPos.size(); i++) {
+            String sourceWord = splitContent.get(listPos.get(i));
+            index = 0;
+            for (int j = 0; j < listPos.get(i); j++) {
+                index += splitContent.get(j).length() + 1;
+            }
+            String repWord = " " + content.substring(index, index + sourceWord.length()) + " ";//splitContent.get(listPos.get(i));
+
+            snippet = snippet.replaceAll(repWord.toLowerCase(Locale.ROOT), " <b>" + repWord + "</b> ");
+        }
+//        String repWord = splitContent.get(listPos.get(0));
+//        snippet = "<... "+content.substring(beginIndex, endIndex).replace(repWord, " <b>" + repWord + "</b> ")+" ...>";
+
+        //mapFoundWords.forEach((k, v) -> log.info("mapFoundWords : k: {} v:{}", k, v));
+        //System.out.println();
+        //listPosition.forEach((k, v) -> log.info("listPosition: k: {} v:{}", k, v));
+
+        long endTime = System.currentTimeMillis();
+        long timeElapsed = endTime - startTime;
+        System.out.println("timeElapsed: " + timeElapsed);
+        System.out.println();
+
+        return snippet;
     }
 
     private String getSnippet(Page page, List<Lemma> lemmaList) {
+        log.info("Get snippet from pageId: {} ", page.getPageId());
         List<String> list = lemmaList.stream()
                 .map(Lemma::getLemma).toList();
         String content = page.getContent();
-        String snippet = getSnippet2(content, lemmaList);
 
-//        for (String s : list) {
-//            List<String> list1 = getList(s, content);
-//            result = getSnippet(result, s);
-//        }
-        return snippet;
+        return getSnippet2(content, lemmaList);
     }
 
     private boolean getOneLemma(String f, String wordSearch) {
