@@ -1,5 +1,6 @@
 package searchengine.services;
 
+import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -17,7 +18,8 @@ import searchengine.repository.PageRepository;
 import searchengine.repository.SiteRepository;
 
 import java.util.*;
-import java.util.stream.Collectors;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.IntStream;
 
 @Slf4j
 @Service
@@ -44,7 +46,7 @@ public class SearchServiceImpl implements SearchService {
     public Response search(String query, String site, int offset, int limit) {
         List<Integer> siteIdList = getSiteIdList(site);
         if (siteIdList.isEmpty()) {
-            return getResponseFalse("Search site " + site + " not found");
+            return setResponseFalse("Search site " + site + " not found");
         }
 
         List<String> lemmaListFromQuery = Objects.requireNonNull(lemmaFinder).collectLemmas(query)
@@ -54,12 +56,12 @@ public class SearchServiceImpl implements SearchService {
 
         List<Lemma> lemmaList = getLemmaList(siteIdList, lemmaListFromQuery);
         if (lemmaList.isEmpty()) {
-            return getResponseFalse("search lemmas: not found in database");
+            return setResponseFalse("search lemmas: not found in database");
         }
 
         removeIfLimitFrequencyIsBig(lemmaList);
         if (lemmaList.isEmpty()) {
-            return getResponseFalse("Not found lemmas in DB");
+            return setResponseFalse("Not found lemmas in DB");
         }
 
         siteIdList = lemmaList.stream().map(Lemma::getSiteId).distinct().toList();
@@ -69,7 +71,7 @@ public class SearchServiceImpl implements SearchService {
         fillSearchResultsList(siteIdList, lemmaList);
 
         if (searchResultsList.isEmpty()) {
-            return getResponseFalse("");
+            return setResponseFalse("");
         }
 
         sortSearchResultsList();
@@ -298,61 +300,116 @@ public class SearchServiceImpl implements SearchService {
                 .toList();
     }
 
+    /**
+     * Получение сниппета из контекста страницы
+     *
+     * @param content   для поиска слов и вырезания фрагмента
+     * @param lemmaList список лемм для поиска
+     * @return сниппет
+     */
     private String getSnippet(String content, List<Lemma> lemmaList) {
         long startTime = System.currentTimeMillis();
 
-        List<String> splitContent = Arrays.stream(content
-                        .toLowerCase(Locale.ROOT)
-                        .trim()
-                        .split("\\s+"))
-                //.parallel()
-                .toList();
+        List<String> splitContent = Arrays.stream(content.trim().split("\\s+")).toList();
+        String[] arraySplitContent = splitContent.toArray(String[]::new);
 
-        Map<String, Boolean> mapFoundWords = new HashMap<>();
+
+        //        List<Integer> list = IntStream.range(0, arraySplitContent.length)                               //
+        //                .mapToObj(index -> String.format("%d -> %s", index, arraySplitContent[index]))          // "0 -> Goat", ...
+        //                .filter(s -> s.toLowerCase(Locale.ROOT).endsWith(wordLemma.toLowerCase(Locale.ROOT)))   // "1 -> Cat", ...
+        //                .map(s -> s.substring(0, s.indexOf("->")).trim())                                       // "1", "5", "9"
+        //                .mapToInt(Integer::parseInt).boxed().toList();                                          // 1, 5, 9
+
+
+        Map<String, Integer> mapFoundWords = new HashMap<>();
         for (Lemma lemma : lemmaList) {
-            mapFoundWords.put(lemma.getLemma(), false);
+            mapFoundWords.put(lemma.getLemma(), 0);
         }
 
-        Map<String, Integer> listPosition = new HashMap<>();
-        boolean b = false;
-        for (int i = 0; i < splitContent.size(); i++) {
-            String word = splitContent.get(i);
+        Map<String, List<Integer>> listPosition = new HashMap<>();
+        //===
+        for (Lemma lemma : lemmaList) {
+            List<Integer> listIndexByLemmaFromContent = getListIndexByLemmaFromContent(arraySplitContent, lemma.getLemma());
+            listPosition.put(lemma.getLemma(), listIndexByLemmaFromContent);
+        }
 
-
-            String regex = "[^A-Za-zА-Яа-я0-9]";
-            word = word.replaceAll(regex, " ").trim();
-            String[] sw = word.split(" ");
-            if (sw.length > 1) {
-                word = sw[0];
+        AtomicInteger prev = new AtomicInteger(0);
+        listPosition.forEach((k, v) -> {
+            mapFoundWords.put(k, v.get(0));
+            if (v.size() == 1) {
+                prev.set(v.get(0));
             }
+        });
+        if (prev.get() == 0) {
+            prev.set(listPosition.get(lemmaList.get(0).getLemma()).get(0));
+        }
 
-            String wordLemma = Objects.requireNonNull(lemmaFinder).getLemma(word);
-
-            for (Lemma lemma : lemmaList) {
-                if (lemma.getLemma().equalsIgnoreCase(wordLemma)) {
-                    listPosition.put(wordLemma, i);
-                    mapFoundWords.put(wordLemma, true);
-
-                    for (Boolean bool : mapFoundWords.values()) {
-                        b = bool;
+        mapFoundWords.forEach((k, v) -> {
+            int cur = v;
+            if (prev.get() == cur || prev.get() == cur - 1 || prev.get() == cur - 2 || prev.get() == cur + 1 || prev.get() == cur + 2) {
+                log.info("=> k: {} v: {}", k, v);
+                prev.set(cur);
+            } else {
+                // проход
+                listPosition.get(k).forEach(val -> {
+                    int cur2 = val;
+                    if (prev.get() == cur2 || prev.get() == cur2 - 1 || prev.get() == cur2 - 2 || prev.get() == cur2 - 3 || prev.get() == cur2 + 1 || prev.get() == cur2 + 2 || prev.get() == cur2 + 3) {
+                        prev.set(cur2);
+                        mapFoundWords.put(k, val);
                     }
-                }
+                });
             }
-//            boolean b1 = false;
-//            if (listPosition.size() > 0) {
-//                int prevPosition = listPosition.values().stream().toList().get(0);
-//                for (int j = 1; j < listPosition.size(); j++) {
-//                    b1 = listPosition.values().stream().toList().get(j) - prevPosition < 3;
-//                    System.out.println("b1: " + b1);
-//                }
-//            }
-            if (b) { //&& b1 && mapFoundWords.size() == lemmaList.size()
-                break;
-            }
-        }
+        });
 
+        lemmaList.forEach(System.out::println);
+
+        System.out.println();
+        mapFoundWords.forEach((k, v) -> {
+            System.out.println(k +": "+ v);
+        });
+        //===
+
+
+
+
+        String snippet = findSnippet(mapFoundWords, splitContent, content);
+
+        log.info("timeElapsed: {}", System.currentTimeMillis() - startTime);
+        return snippet;
+    }
+
+    /**
+     * Возвращает список индексов для искомого слова
+     *
+     * @param arraySplitContent массив слов контекста
+     * @param wordLemma         слово
+     * @return индексы
+     */
+    private List<Integer> getListIndexByLemmaFromContent(String[] arraySplitContent, @NonNull String wordLemma) {
+        return IntStream.range(0, arraySplitContent.length)
+                .mapToObj(index -> {
+                    String regex = "[^A-Za-zА-Яа-я0-9]";
+                    String w = arraySplitContent[index].replaceAll(regex, " ").trim().toLowerCase(Locale.ROOT);
+
+                    String result = lemmaFinder.getLemma(w);
+                    return String.format("%d -> %s", index, result);
+                })
+                .filter(s -> s.toLowerCase(Locale.ROOT).endsWith(wordLemma.toLowerCase(Locale.ROOT)))
+                .map(s -> s.substring(0, s.indexOf("->")).trim())
+                .mapToInt(Integer::parseInt).boxed().toList();
+    }
+
+    /**
+     * Находит нужный фрагмент и выделяет слова жирным
+     *
+     * @param mapFoundWords мапа слово - позиция
+     * @param splitContent
+     * @param content      контент
+     * @return сниппет
+     */
+    private String findSnippet(Map<String, Integer> mapFoundWords, List<String> splitContent, String content) {
         String snippet = "";
-        List<Integer> listPos = listPosition.values().stream().toList();
+        List<Integer> listPos = mapFoundWords.values().stream().toList();
 
         int index = 0;
         for (int i = 0; i < listPos.get(0); i++) {
@@ -362,35 +419,38 @@ public class SearchServiceImpl implements SearchService {
         int beginIndex;
         int endIndex;
 
-        beginIndex = Math.max(index - 135, 0);
-        endIndex = Math.min(index + 135, content.length());
+        beginIndex = Math.max(index - 130, 0);
+        endIndex = Math.min(index + 130, content.length());
         snippet = "<... " + content.substring(beginIndex, endIndex) + " ...>";
 
-        for (Integer listPo : listPos) {
-            String sourceWord = splitContent.get(listPo);
+        for (Integer position : listPos) {
+            String sourceWord = splitContent.get(position);
             index = 0;
-            for (int j = 0; j < listPo; j++) {
+            for (int j = 0; j < position; j++) {
                 index += splitContent.get(j).length() + 1;
             }
             String repWord = " " + content.substring(index, index + sourceWord.length()) + " ";
 
-            snippet = snippet.replaceAll(repWord.toLowerCase(Locale.ROOT), " <b>" + repWord + "</b> ");
+            snippet = snippet.replaceAll(repWord, " <b>" + repWord.trim() + "</b> ");
         }
-
-        long endTime = System.currentTimeMillis();
-        long timeElapsed = endTime - startTime;
-        log.info("timeElapsed: {}", timeElapsed);
-
         return snippet;
     }
 
-    private Response getResponseFalse(String errorMessage) {
+    /**
+     * response.setResult(true); true- тогда удаляются результаты предыдущего поиска,
+     * но не отражается строка ошибки на стороне фронта
+     * если false - то оставляет результаты предыдущего поиска
+     *
+     * @param errorMessage сообщение
+     * @return response ответ
+     */
+    private Response setResponseFalse(String errorMessage) {
         log.warn(errorMessage);
 
         List<SearchData> searchDataList = new ArrayList<>();
         SearchResponse response = new SearchResponse();
         response.setError(errorMessage);
-        response.setResult(true);                       /* если false - то оставляет результаты предыдущего поиска */
+        response.setResult(true);
         response.setCount(0);
         SearchData searchData = new SearchData("", "", "", "", "", 0);
         searchDataList.add(searchData);
