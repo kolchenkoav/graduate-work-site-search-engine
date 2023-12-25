@@ -1,4 +1,4 @@
-package searchengine.parsing.siteMapping;
+package searchengine.parsing.sitemapping;
 
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
@@ -42,14 +42,12 @@ public class SiteParser {
     }
 
     public void forceStop() {
-        if (pool != null) {
-            pool.shutdownNow();
-            this.setCancelledSite(new AtomicBoolean(true));
-        }
+        pool.shutdownNow();
+        this.setCancelledSite(new AtomicBoolean(true));
     }
 
     private static final int PARALLELISM = 120;
-    private static ForkJoinPool pool;
+    private static final ForkJoinPool pool = new ForkJoinPool(PARALLELISM);
 
     /**
      * <p>This is a simple description of the method. . .
@@ -59,9 +57,6 @@ public class SiteParser {
      * @since 1.0
      */
     public void getLinks() {
-        System.out.println(url);
-        pool = new ForkJoinPool(PARALLELISM);
-
         parsePage = preparePage();
         pool.execute(parsePage);
 
@@ -77,7 +72,7 @@ public class SiteParser {
             pool.shutdown();
         }
         try {
-            Set<String> result = parsePage.join();
+            parsePage.join();
             saveSite();
         } catch (Exception e) {
             log.error("parsePage.join() {}", e.getMessage());
@@ -110,19 +105,15 @@ public class SiteParser {
         siteE.setLastError(getCancelledSite().get() || parsePage.isCancelled() || parsePage.getCancelled().get() ? Messages.INDEXING_STOPPED_BY_USER : "");
         siteE.setStatusTime(Utils.setNow());
         siteRepository.save(siteE);
-        System.out.println();
         log.info("===>>> site '{}' saved", siteE.getName());
-        System.out.println();
     }
 
     public void getLemmasForAllPages(SiteE siteE) {
-        System.out.println();
         List<Page> pageList = pageRepository.findBySiteIdAndCode(siteE.getSiteId(), 200);
         parseLemma.setBeginPos(pageList.get(0).getPageId());
         parseLemma.setEndPos(pageList.get(pageList.size()-1).getPageId());
 
         pageList.stream().takeWhile(e -> !this.getCancelledSite().get()).forEach(this::parseSinglePage);
-        System.out.println();
     }
 
     public void parseSinglePage(Page page) {

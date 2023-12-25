@@ -1,5 +1,7 @@
 package searchengine.services;
 
+import searchengine.dto.Response;
+
 public interface IndexingService {
     /**
      * Метод запускает полную индексацию всех сайтов
@@ -9,7 +11,7 @@ public interface IndexingService {
      *
      * @see <a href="https://github.com/kolchenkoav/graduate-work-site-search-engine/blob/master/docs/startIndexing.md">Запуск полной индексации</a>
      */
-    Object startIndexing();
+    Response startIndexing();
 
     /**
      * Метод останавливает текущий процесс индексации (переиндексации).
@@ -18,7 +20,7 @@ public interface IndexingService {
      *
      * @see <a href="https://github.com/kolchenkoav/graduate-work-site-search-engine/blob/master/docs/stopindexing.md">Остановка текущей индексации</a>
      */
-    Object stopIndexing();
+    Response stopIndexing();
 
     /**
      * Метод добавляет в индекс или обновляет отдельную страницу
@@ -28,5 +30,5 @@ public interface IndexingService {
      * @param url — адрес страницы, которую нужно переиндексировать.
      * @see <a href="https://github.com/kolchenkoav/graduate-work-site-search-engine/blob/master/docs/indexPage.md">Добавление или обновление отдельной страницы</a>
      */
-    Object indexPage(String url);
+    Response indexPage(String url);
 }

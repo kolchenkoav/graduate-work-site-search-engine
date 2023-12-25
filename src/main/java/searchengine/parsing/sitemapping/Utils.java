@@ -1,4 +1,4 @@
-package searchengine.parsing.siteMapping;
+package searchengine.parsing.sitemapping;
 
 import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;

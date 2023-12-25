@@ -4,7 +4,6 @@ import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.context.annotation.Scope;
 import org.springframework.stereotype.Component;
 
 import org.springframework.transaction.annotation.Transactional;
@@ -18,16 +17,14 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-import static searchengine.parsing.siteMapping.Utils.*;
-import static searchengine.parsing.siteMapping.Utils.ANSI_RESET;
+import static searchengine.parsing.sitemapping.Utils.*;
+import static searchengine.parsing.sitemapping.Utils.ANSI_RESET;
 
 @Slf4j
 @Component
 @RequiredArgsConstructor
 @Getter
 @Setter
-//@Transactional
-//@Scope("prototype")
 public class ParseLemma {
     private final LemmaRepository lemmaRepository;
     private final IndexRepository indexRepository;
@@ -46,21 +43,11 @@ public class ParseLemma {
             Map<String, Integer> mapLemmas = lemmaFinder.collectLemmas(content);
             Map<Lemma, Integer> mapLemmasForAdd = new HashMap<>();
             mapLemmas.forEach((key, value1) -> mapLemmasForAdd.put(parseOneLemma(siteId, key), value1));
-            //mapLemmas.entrySet().parallelStream().parallel().forEach(lemma -> mapLemmasForAdd.put(parseOneLemma(siteId, lemma.getKey()), lemma.getValue()));
 
             lemmaRepository.saveAll(mapLemmasForAdd.keySet());
-//            System.out.println();
-//            mapLemmasForAdd.forEach((k, v) -> {
-//                log.info("mapLemmasForAdd    Lemma: {} value: {}", k, v);
-//            });
 
             List<IndexE> listIndexForAdd = new ArrayList<>();
             mapLemmasForAdd.forEach((key, value1) -> listIndexForAdd.add(new IndexE(pageId, key.getLemmaId(), value1)));
-            //mapLemmasForAdd.entrySet().parallelStream().parallel().forEach(value -> listIndexForAdd.add(new IndexE(pageId, value.getKey().getLemmaId(), value.getValue())));
-//            System.out.println();
-//            listIndexForAdd.forEach((i) -> {
-//                log.info("listIndexForAdd    IndexE: {}", i);
-//            });
             indexRepository.saveAll(listIndexForAdd);
 
             printMessageAboutProgress(siteId, pageId, mapLemmasForAdd.size(), page.getPath());

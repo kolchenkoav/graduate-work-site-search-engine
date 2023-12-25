@@ -8,12 +8,13 @@ import searchengine.config.Messages;
 import searchengine.config.Site;
 import searchengine.config.SiteList;
 import searchengine.controllers.DefaultController;
+import searchengine.dto.Response;
 import searchengine.dto.indexing.IndexingErrorResponse;
 import searchengine.dto.indexing.IndexingResponse;
 import searchengine.model.*;
-import searchengine.parsing.siteMapping.ParsePage;
-import searchengine.parsing.siteMapping.SiteParser;
-import searchengine.parsing.siteMapping.Utils;
+import searchengine.parsing.sitemapping.ParsePage;
+import searchengine.parsing.sitemapping.SiteParser;
+import searchengine.parsing.sitemapping.Utils;
 import searchengine.repository.IndexRepository;
 import searchengine.repository.LemmaRepository;
 import searchengine.repository.PageRepository;
@@ -45,7 +46,7 @@ public class IndexingServiceImpl implements IndexingService {
     private final PageRepository pageRepository;
     private final SiteRepository siteRepository;
     private final DefaultController controller;
-    private Object response;
+    private Response response;
     private ThreadPoolExecutor executor;
 
     /******************************************************************************************
@@ -54,7 +55,7 @@ public class IndexingServiceImpl implements IndexingService {
      * @return response (Успешно или ошибка)
      */
     @Override
-    public Object startIndexing() {
+    public Response startIndexing() {
         parsePage.setCancelled(new AtomicBoolean(false));
         if (indexing()) {
             IndexingResponse responseTrue = new IndexingResponse();
@@ -113,7 +114,6 @@ public class IndexingServiceImpl implements IndexingService {
         parsePage.setCancelled(new AtomicBoolean(false));
         SiteE siteE;
         int siteId;
-        System.out.println();
         if (isCreate) {
             siteE = new SiteE(Status.INDEXING, Utils.setNow(), url, name);
             log.info("<<<=== Site '{}' added", name);
@@ -171,7 +171,7 @@ public class IndexingServiceImpl implements IndexingService {
      * @return response (Успешно или ошибка)
      */
     @Override
-    public Object stopIndexing() {
+    public Response stopIndexing() {
         if (stopping()) {
             IndexingResponse responseTrue = new IndexingResponse();
             responseTrue.setResult(true);
@@ -212,7 +212,6 @@ public class IndexingServiceImpl implements IndexingService {
                     });
             siteRepository.saveAll(siteEList);
 
-            System.out.println("===> " + Thread.currentThread());
             log.warn(Messages.INDEXING_STOPPED_BY_USER);
         } catch (Exception e) {
             log.error(e.getMessage());
@@ -228,7 +227,7 @@ public class IndexingServiceImpl implements IndexingService {
      * @return response (Успешно или ошибка)
      */
     @Override
-    public Object indexPage(String url) {
+    public Response indexPage(String url) {
         if (indexingPage(url)) {
             IndexingResponse responseTrue = new IndexingResponse();
             responseTrue.setResult(true);

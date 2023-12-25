@@ -1,5 +1,7 @@
 package searchengine.services;
 
+import searchengine.dto.Response;
+
 public interface SearchService {
     /**
      * Метод осуществляет поиск страниц по переданному поисковому запросу (параметр query).
@@ -14,5 +16,5 @@ public interface SearchService {
      *               (параметр необязательный; если не установлен, то значение по умолчанию равно 20).
      * @return response
      */
-    Object search(String query, String site, int offset, int limit);
+    Response search(String query, String site, int offset, int limit);
 }

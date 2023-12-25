@@ -96,9 +96,7 @@ public class LemmaFinder {
         String[] words = splitWords(text, true);
 
         List<String> lemmas = new ArrayList<>();
-        int i = 0;
         for (String word : words) {
-            i++;
             String normalWord = getNormalWord(word);
             if (normalWord == null) continue;
             lemmas.add(normalWord);

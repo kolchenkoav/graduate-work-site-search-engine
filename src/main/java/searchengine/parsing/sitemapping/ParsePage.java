@@ -1,4 +1,4 @@
-package searchengine.parsing.siteMapping;
+package searchengine.parsing.sitemapping;
 
 import lombok.Getter;
 import lombok.Setter;
@@ -10,9 +10,7 @@ import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
 import org.springframework.context.annotation.Scope;
 import org.springframework.stereotype.Component;
-import searchengine.model.IndexE;
-import searchengine.model.Page;
-import searchengine.model.SiteE;
+import searchengine.model.Page;;
 import searchengine.parsing.ParseLemma;
 import searchengine.repository.PageRepository;
 
@@ -25,7 +23,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.RecursiveTask;
 import java.util.concurrent.atomic.AtomicBoolean;
 
-import static searchengine.parsing.siteMapping.Utils.*;
+import static searchengine.parsing.sitemapping.Utils.*;
 
 @Slf4j
 @Getter

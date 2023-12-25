@@ -5,6 +5,8 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import searchengine.dto.Response;
+import searchengine.dto.search.SearchResponse;
 import searchengine.dto.statistics.StatisticsResponse;
 import searchengine.services.IndexingService;
 import searchengine.services.SearchService;
@@ -25,31 +27,26 @@ public class ApiController {
     }
 
     @GetMapping("/startIndexing")
-    public ResponseEntity<?> startIndexing() {
+    public ResponseEntity<Response> startIndexing() {
         statistics();
         return ResponseEntity.ok(indexingService.startIndexing());
     }
 
     @GetMapping("/stopIndexing")
-    public ResponseEntity<?> stopIndexing() {
+    public ResponseEntity<Response> stopIndexing() {
         return ResponseEntity.ok(indexingService.stopIndexing());
     }
 
     @PostMapping("/indexPage")
-    public ResponseEntity<?> indexPage(@RequestParam String url) {
+    public ResponseEntity<Response> indexPage(@RequestParam String url) {
         return ResponseEntity.ok(indexingService.indexPage(url));
     }
 
     @GetMapping("/search")
-    public ResponseEntity<?> search(@RequestParam String query,
+    public ResponseEntity<Response> search(@RequestParam String query,
                                     @RequestParam(required = false) String site,
                                     @RequestParam int offset,
                                     @RequestParam(required = false) int limit) {
         return ResponseEntity.ok(searchService.search(query, site, offset, limit));
-    }
-
-    @GetMapping("/test")
-    public ResponseEntity<?> test() {
-        return ResponseEntity.ok(123);
     }
 }
