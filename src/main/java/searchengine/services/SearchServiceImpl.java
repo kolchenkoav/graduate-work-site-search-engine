@@ -32,18 +32,30 @@ public class SearchServiceImpl implements SearchService {
 
     private final SiteList sites;
     private final LemmaFinder lemmaFinder = LemmaFinder.getInstance();
-    private int limitFrequency;
     private double[][] relevance;
     private double maxRelevance;
     private List<SearchResults> searchResultsList;
+    int offset;
+    int limit;
 
-    /*
-         Список Id сайтов:          List<Integer> siteIdList
-         Лемма список из запроса:   List<String> lemmaListFromQuery
-         Лемма из БД:               List<Lemma> lemmaList
-    */
+    /**
+     * Метод осуществляет поиск страниц по переданному поисковому запросу (параметр query).
+     *
+     * @param query  — поисковый запрос;
+     * @param site   — сайт, по которому осуществлять поиск (если не задан,
+     *               поиск должен происходить по всем проиндексированным сайтам);
+     *               задаётся в формате адреса, например: http://www.site.com (без слэша в конце);
+     * @param offset — сдвиг от 0 для постраничного вывода (параметр необязательный;
+     *               если не установлен, то значение по умолчанию равно нулю);
+     * @param limit  — количество результатов, которое необходимо вывести
+     *               (параметр необязательный; если не установлен, то значение по умолчанию равно 20).
+     * @return response
+     */
     @Override
     public Response search(String query, String site, int offset, int limit) {
+        this.offset = offset;   // Необходим в методе formationForOneSite
+        this.limit = limit;     // - // -
+
         List<Integer> siteIdList = getSiteIdList(site);
         if (siteIdList.isEmpty()) {
             return setResponseFalse("Search site " + site + " not found");
@@ -69,11 +81,9 @@ public class SearchServiceImpl implements SearchService {
         lemmaList = lemmaList.stream().sorted(Comparator.comparingInt(Lemma::getFrequency)).toList();
 
         fillSearchResultsList(siteIdList, lemmaList);
-
         if (searchResultsList.isEmpty()) {
             return setResponseFalse("");
         }
-
         sortSearchResultsList();
 
         setSnippetForSearchResults(lemmaList);
@@ -81,6 +91,13 @@ public class SearchServiceImpl implements SearchService {
         return setSearchData();
     }
 
+    /**
+     * Возвращает список сущностей Lemma из DB
+     *
+     * @param siteIdList список siteId
+     * @param lemmaListFromQuery список лемм из запроса
+     * @return список найденных в БД лемм
+     */
     private List<Lemma> getLemmaList(List<Integer> siteIdList, List<String> lemmaListFromQuery) {
         List<Lemma> lemmaList = new ArrayList<>();
         for (Integer siteId : siteIdList) {
@@ -88,27 +105,39 @@ public class SearchServiceImpl implements SearchService {
                 lemmaRepository.findBySiteIdAndLemma(siteId, lem).ifPresent(lemmaList::add);
             }
         }
+        lemmaList.removeIf(lemma -> lemma.getLemma().length() == 1);
         return lemmaList;
     }
 
+    /**
+     * Удаление из списка поиска лемм которые слишком часто встречаются
+     *
+     * @param lemmaList список лемм
+     */
     private void removeIfLimitFrequencyIsBig(List<Lemma> lemmaList) {
+        int limitCount = 10;
         Iterator<Lemma> iterator = lemmaList.iterator();
         while (iterator.hasNext()) {
             Lemma lemma = iterator.next();
             int countPages = pageRepository.countBySiteId(lemma.getSiteId());
 
-            limitFrequency = countPages;
             log.info("siteId: {} countPages: {} Frequency: {}", lemma.getSiteId(), countPages, lemma.getFrequency());
-            if (lemma.getFrequency() >= limitFrequency && countPages > 10) {
+            if (lemma.getFrequency() >= countPages && countPages > limitCount) {
                 iterator.remove();
             }
         }
     }
 
+    /**
+     * Заполнение списка SearchResults
+     *
+     * @param siteIdList список siteId
+     * @param lemmaList список лемм
+     */
     private void fillSearchResultsList(List<Integer> siteIdList, List<Lemma> lemmaList) {
         searchResultsList = new ArrayList<>();
         for (Integer i : siteIdList) {
-            FormationForOneSite(lemmaList.stream().filter(lemma -> lemma.getSiteId() == i).toList());
+            formationForOneSite(lemmaList.stream().filter(lemma -> lemma.getSiteId() == i).toList());
 
             // заполняем searchResultsList
             for (int j = 0; j < relevance.length; j++) {
@@ -124,6 +153,9 @@ public class SearchServiceImpl implements SearchService {
         }
     }
 
+    /**
+     *  Сортировка списка SearchResults
+     */
     private void sortSearchResultsList() {
         searchResultsList = searchResultsList.stream()
                 .sorted(Comparator
@@ -132,6 +164,11 @@ public class SearchServiceImpl implements SearchService {
                 .toList();
     }
 
+    /**
+     * Заполнение сниппетами списка SearchResults
+     *
+     * @param lemmaList список лемм
+     */
     private void setSnippetForSearchResults(List<Lemma> lemmaList) {
         Iterator<SearchResults> iteratorSR = searchResultsList.iterator();
         SearchResults results;
@@ -146,6 +183,11 @@ public class SearchServiceImpl implements SearchService {
         }
     }
 
+    /**
+     * SearchResults -> searchDataList
+     *
+     * @return responseTrue
+     */
     private Response setSearchData() {
         List<SearchData> searchDataList = new ArrayList<>();
         SearchResponse responseTrue = new SearchResponse();
@@ -154,7 +196,7 @@ public class SearchServiceImpl implements SearchService {
         responseTrue.setCount(searchResultsList.size());
         for (SearchResults searchResults : searchResultsList) {
             SiteE siteE = siteRepository.getSiteEBySiteId(searchResults.getSiteId());
-            String url = siteE.getUrl() + searchResults.getUrl();
+            String url = searchResults.getUrl(); // siteE.getUrl() +
             SearchData searchData = new SearchData(siteE.getName(),
                     siteE.getName(),
                     url,
@@ -168,7 +210,7 @@ public class SearchServiceImpl implements SearchService {
     }
 
     /**
-     * Получяет список Id сайтов из конфигурации которые есть в БД
+     * Получает список Id сайтов из конфигурации которые есть в БД
      *
      * @param site if null - all sites
      * @return list of siteIds
@@ -205,11 +247,11 @@ public class SearchServiceImpl implements SearchService {
      *
      * @param lemmaList список лемм для поиска в IndexE и Page
      */
-    private void FormationForOneSite(List<Lemma> lemmaList) {
+    private void formationForOneSite(List<Lemma> lemmaList) {
         // 4. По первой, самой редкой лемме из списка, находить все страницы, на которых она встречается
         List<IndexE> indexList = new ArrayList<>(Objects
                 .requireNonNull(indexRepository.findByLemmaId(lemmaList.get(0).getLemmaId())
-                        .orElse(null)));
+                        .orElse(null)).stream().skip(offset).limit(limit).toList() );
         List<Page> pageList = new ArrayList<>();
         for (IndexE indexE : indexList) {
             Page page = pageRepository.findByPageId(indexE.getPageId());
@@ -229,7 +271,7 @@ public class SearchServiceImpl implements SearchService {
         for (int j = 0; j < indexList.size(); j++) {
             for (int k = 0; k < 2; k++) {    //
                 if (k == 0) {
-                    relevance[j][k] = j + 1;
+                    relevance[j][k] = j + 1.0;
                     SearchResults searchResults = new SearchResults();
                     searchResults.setNumber(j + 1);
                     searchResults.setSiteId(lemmaList.get(0).getSiteId());
@@ -286,21 +328,6 @@ public class SearchServiceImpl implements SearchService {
     }
 
     /**
-     * Исключает из списка леммы, которые встречаются на слишком большом количестве страниц.
-     * Поэкспериментируйте и определите этот процент самостоятельно.
-     *
-     * @param lemmaList список лемм
-     * @return обработанный список лемм
-     */
-    private List<Lemma> excludeLemmasFromTheResultingList(List<Lemma> lemmaList) {
-        //TODO limitFrequency определить
-        limitFrequency = 3;
-        return lemmaList.stream()
-                .filter(lemma -> lemma.getFrequency() < limitFrequency)
-                .toList();
-    }
-
-    /**
      * Получение сниппета из контекста страницы
      *
      * @param content   для поиска слов и вырезания фрагмента
@@ -313,29 +340,40 @@ public class SearchServiceImpl implements SearchService {
         List<String> splitContent = Arrays.stream(content.trim().split("\\s+")).toList();
         String[] arraySplitContent = splitContent.toArray(String[]::new);
 
-
-        //        List<Integer> list = IntStream.range(0, arraySplitContent.length)                               //
-        //                .mapToObj(index -> String.format("%d -> %s", index, arraySplitContent[index]))          // "0 -> Goat", ...
-        //                .filter(s -> s.toLowerCase(Locale.ROOT).endsWith(wordLemma.toLowerCase(Locale.ROOT)))   // "1 -> Cat", ...
-        //                .map(s -> s.substring(0, s.indexOf("->")).trim())                                       // "1", "5", "9"
-        //                .mapToInt(Integer::parseInt).boxed().toList();                                          // 1, 5, 9
-
-
-        Map<String, Integer> mapFoundWords = new HashMap<>();
-        for (Lemma lemma : lemmaList) {
-            mapFoundWords.put(lemma.getLemma(), 0);
-        }
-
         Map<String, List<Integer>> listPosition = new HashMap<>();
-        //===
         for (Lemma lemma : lemmaList) {
             List<Integer> listIndexByLemmaFromContent = getListIndexByLemmaFromContent(arraySplitContent, lemma.getLemma());
             listPosition.put(lemma.getLemma(), listIndexByLemmaFromContent);
         }
 
+        Map<String, Integer> mapFoundWords = setMapFoundWords(listPosition, lemmaList);
+
+        String snippet = findSnippet(mapFoundWords, splitContent, content);
+
+        log.info("timeElapsed: {}", System.currentTimeMillis() - startTime);
+        return snippet;
+    }
+
+    /**
+     * Получение mapFoundWords для правильного отображения списка лемм
+     *
+     * @param listPosition список   < лемма, список индексов в контесте для этой леммы>
+     * @param lemmaList поисковые леммы
+     * @return mapFoundWords    < лемма, индекс >
+     */
+    private Map<String, Integer> setMapFoundWords(Map<String, List<Integer>> listPosition, List<Lemma> lemmaList) {
+        Map<String, Integer> mapFoundWords = new HashMap<>();
+        for (Lemma lemma : lemmaList) {
+            mapFoundWords.put(lemma.getLemma(), 0);
+        }
+
         AtomicInteger prev = new AtomicInteger(0);
         listPosition.forEach((k, v) -> {
-            mapFoundWords.put(k, v.get(0));
+            if (!v.isEmpty()) {
+                mapFoundWords.put(k, v.get(0));
+            } else {
+                mapFoundWords.put(k, 1);
+            }
             if (v.size() == 1) {
                 prev.set(v.get(0));
             }
@@ -346,36 +384,26 @@ public class SearchServiceImpl implements SearchService {
 
         mapFoundWords.forEach((k, v) -> {
             int cur = v;
-            if (prev.get() == cur || prev.get() == cur - 1 || prev.get() == cur - 2 || prev.get() == cur + 1 || prev.get() == cur + 2) {
-                log.info("=> k: {} v: {}", k, v);
+            int prevPosition = prev.get();
+            if (isFoundIndexNear(prevPosition, cur)) {
                 prev.set(cur);
             } else {
-                // проход
                 listPosition.get(k).forEach(val -> {
                     int cur2 = val;
-                    if (prev.get() == cur2 || prev.get() == cur2 - 1 || prev.get() == cur2 - 2 || prev.get() == cur2 - 3 || prev.get() == cur2 + 1 || prev.get() == cur2 + 2 || prev.get() == cur2 + 3) {
+                    int prevPosition2 = prev.get();
+                    if (isFoundIndexNear(prevPosition2, cur2)) {
                         prev.set(cur2);
                         mapFoundWords.put(k, val);
                     }
                 });
             }
         });
+        return mapFoundWords;
+    }
 
-        lemmaList.forEach(System.out::println);
-
-        System.out.println();
-        mapFoundWords.forEach((k, v) -> {
-            System.out.println(k +": "+ v);
-        });
-        //===
-
-
-
-
-        String snippet = findSnippet(mapFoundWords, splitContent, content);
-
-        log.info("timeElapsed: {}", System.currentTimeMillis() - startTime);
-        return snippet;
+    private boolean isFoundIndexNear(int prevPosition, int cur) {
+        return prevPosition == cur || prevPosition == cur - 1 || prevPosition == cur - 2 || prevPosition == cur - 3 ||
+               prevPosition == cur + 1 || prevPosition == cur + 2 || prevPosition == cur + 3;
     }
 
     /**
@@ -388,14 +416,27 @@ public class SearchServiceImpl implements SearchService {
     private List<Integer> getListIndexByLemmaFromContent(String[] arraySplitContent, @NonNull String wordLemma) {
         return IntStream.range(0, arraySplitContent.length)
                 .mapToObj(index -> {
-                    String regex = "[^A-Za-zА-Яа-я0-9]";
-                    String w = arraySplitContent[index].replaceAll(regex, " ").trim().toLowerCase(Locale.ROOT);
-
-                    String result = lemmaFinder.getLemma(w);
+                    String w = arraySplitContent[index];
+                    if (w.endsWith("'s")) {
+                        w = w.replace("'s", "");
+                    }
+                    if (w.endsWith(".com")) {
+                        w = w.replace(".com", "");
+                    }
+                    List<String> lemmaListFromQuery = Objects.requireNonNull(lemmaFinder).collectLemmas(w)
+                                    .keySet()
+                                    .stream()
+                                    .toList();
+                    String result = "";
+                    if (!lemmaListFromQuery.isEmpty()) {
+                        String regex = "[^A-Za-zА-Яа-я0-9]";
+                        result = lemmaListFromQuery.get(0).replaceAll(regex, " ").trim().toLowerCase(Locale.ROOT);
+                    }
                     return String.format("%d -> %s", index, result);
                 })
                 .filter(s -> s.toLowerCase(Locale.ROOT).endsWith(wordLemma.toLowerCase(Locale.ROOT)))
                 .map(s -> s.substring(0, s.indexOf("->")).trim())
+                .parallel()
                 .mapToInt(Integer::parseInt).boxed().toList();
     }
 
@@ -431,15 +472,19 @@ public class SearchServiceImpl implements SearchService {
             }
             String repWord = " " + content.substring(index, index + sourceWord.length()) + " ";
 
-            snippet = snippet.replaceAll(repWord, " <b>" + repWord.trim() + "</b> ");
+            try {
+                snippet = snippet.replaceAll(repWord, " <b>" + repWord.trim() + "</b> ");
+            } catch (Exception e) {
+                log.warn("repWord: {} snippet: {}", repWord, snippet);
+            }
         }
         return snippet;
     }
 
     /**
-     * response.setResult(true); true- тогда удаляются результаты предыдущего поиска,
+     * response.setResult(true) true- тогда удаляются результаты предыдущего поиска,
      * но не отражается строка ошибки на стороне фронта
-     * если false - то оставляет результаты предыдущего поиска
+     * если false- то оставляет результаты предыдущего поиска
      *
      * @param errorMessage сообщение
      * @return response ответ

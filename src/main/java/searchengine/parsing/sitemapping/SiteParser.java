@@ -50,11 +50,7 @@ public class SiteParser {
     private static final ForkJoinPool pool = new ForkJoinPool(PARALLELISM);
 
     /**
-     * <p>This is a simple description of the method. . .
-     * <a href="http://www.supermanisthegreatest.com">Superman!</a>
-     * </p>
-     * @see <a href="http://www.link_to_jira/HERO-402">HERO-402</a>
-     * @since 1.0
+     *  Парсинг страниц
      */
     public void getLinks() {
         parsePage = preparePage();

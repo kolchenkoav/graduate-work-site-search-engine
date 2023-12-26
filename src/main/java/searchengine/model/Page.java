@@ -45,7 +45,7 @@ public class Page {                            // implements Serializable
     private SiteE siteEBySiteId;
 
     @OneToMany(mappedBy = "pageByPageId", cascade = CascadeType.ALL)
-    private List<IndexE> IndexEByPageId = new ArrayList<>();
+    private List<IndexE> indexEByPageId = new ArrayList<>();
 
     @Override
     public boolean equals(Object o) {

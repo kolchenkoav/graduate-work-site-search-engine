@@ -165,8 +165,6 @@ public class ParsePage extends RecursiveTask<Set<String>> {
     public void clearUniqueLinks() {
         uniqueLinks.clear();
     }
-
-
 }
 
 

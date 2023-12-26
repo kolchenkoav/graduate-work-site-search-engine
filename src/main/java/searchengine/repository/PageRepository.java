@@ -5,7 +5,6 @@ import org.springframework.stereotype.Repository;
 import searchengine.model.Page;
 
 import javax.transaction.Transactional;
-import java.util.Collection;
 import java.util.List;
 
 
