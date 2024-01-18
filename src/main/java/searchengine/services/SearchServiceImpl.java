@@ -77,6 +77,10 @@ public class SearchServiceImpl implements SearchService {
             return setResponseFalse("Not found lemmas in DB");
         }
 
+        lemmaList.forEach(lemma -> {
+            System.out.println(lemma.getLemma()+" "+lemma.getFrequency());
+        });
+
         siteIdList = lemmaList.stream().map(Lemma::getSiteId).distinct().toList();
 
         lemmaList = lemmaList.stream().sorted(Comparator.comparingInt(Lemma::getFrequency)).toList();
@@ -115,7 +119,7 @@ public class SearchServiceImpl implements SearchService {
             for (String lem : lemmaListFromQuery) {
                 lemmaRepository.findBySiteIdAndLemma(siteId, lem).ifPresent(lemmaList::add);
             }
-            long countOfWordsFound = lemmaList.stream().filter(lemma -> lemma.getSiteId() == siteId).count();
+            long countOfWordsFound = lemmaList.stream().filter(lemma -> siteId.equals(lemma.getSiteId())).count();
             if (countOfWordsFound == 0) {
                 continue;
             }
@@ -123,7 +127,6 @@ public class SearchServiceImpl implements SearchService {
                 lemmaList.removeIf(lemma -> lemma.getSiteId() == siteId);
             }
         }
-        lemmaList.removeIf(lemma -> lemma.getLemma().length() == 1);
         return lemmaList;
     }
 
@@ -133,7 +136,7 @@ public class SearchServiceImpl implements SearchService {
      * @param lemmaList список лемм
      */
     private void removeIfLimitFrequencyIsBig(List<Lemma> lemmaList) {
-        int limitCount = 10;
+        int limitCount = 1000;
         Iterator<Lemma> iterator = lemmaList.iterator();
         while (iterator.hasNext()) {
             Lemma lemma = iterator.next();
@@ -141,6 +144,7 @@ public class SearchServiceImpl implements SearchService {
 
             log.info("siteId: {} countPages: {} Frequency: {}", lemma.getSiteId(), countPages, lemma.getFrequency());
             if (lemma.getFrequency() >= countPages && countPages > limitCount) {
+                log.warn("remove lemma:{}", lemma.getLemma());
                 iterator.remove();
             }
         }
@@ -164,7 +168,9 @@ public class SearchServiceImpl implements SearchService {
                     results = searchResults;
                     int ind = relevance[j].length - 1;
                     if (results.getNumber() == (j + 1) && results.getSiteId() == i) {
+                        // TODO
                         results.setRelevance(relevance[j][ind]);
+
                     }
                 }
             }
@@ -175,6 +181,7 @@ public class SearchServiceImpl implements SearchService {
      *  Сортировка списка SearchResults и после применение offset и limit
      */
     private void sortSearchResultsList() {
+        searchResultsList.removeIf(searchResults -> searchResults.getRelevance() == 0.0);
         searchResultsList = searchResultsList.stream()
                 .sorted(Comparator
                         .comparing(SearchResults::getRelevance)
@@ -322,6 +329,13 @@ public class SearchServiceImpl implements SearchService {
         }
         setAbsoluteRelevance(pageList, lemmaList);
         setRelativeRelevance(pageList, lemmaList);
+
+//        for (int j = 0; j < relevance.length; j++) {
+//            int k = relevance[j].length-1;
+//            if (relevance[j][k] == 0) {
+//            relevance[j].
+//            }
+//        }
     }
 
     private void setRelativeRelevance(List<Page> pageList, List<Lemma> lemmaList) {
