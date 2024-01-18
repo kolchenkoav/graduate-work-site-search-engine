@@ -29,7 +29,7 @@ import static searchengine.parsing.sitemapping.Utils.*;
 @Getter
 @Setter
 @Component
-@Scope("prototype")
+//@Scope("prototype")
 public class ParsePage extends RecursiveTask<Set<String>> {
     private final ParseLemma parseLemma;
     private final PageRepository pageRepository;
@@ -96,7 +96,9 @@ public class ParsePage extends RecursiveTask<Set<String>> {
                     .get();
         } catch (HttpStatusException e) {
             code = e.getStatusCode();
+            log.warn("debug: code: {}", code);
         } catch (IOException ex) {
+            log.warn("debug: ex.getMessage: {}", ex.getMessage());
             return null;
         }
         return doc;
@@ -112,8 +114,20 @@ public class ParsePage extends RecursiveTask<Set<String>> {
             log.warn("Failed to save page");
             return null;
         }
-        String content = doc.body().text();
-        String title = doc.title();
+        String content = "";
+        try {
+            content = doc.body().text();
+        } catch (Exception e) {
+            log.warn("Ошибка при получении контекста страницы: {}", url);
+        }
+
+        String title = "";
+        try {
+            title = doc.title();
+        } catch (Exception e) {
+            log.warn("Ошибка при получении заголовка страницы: {}", url);
+        }
+
         Page page = new Page(siteId, url.substring(domain.length()), code, content, title);
         pageRepository.save(page);
         return page;

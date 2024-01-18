@@ -67,7 +67,7 @@ public class IndexingServiceImpl implements IndexingService {
             responseFalse.setError(Messages.INDEXING_HAS_ALREADY_STARTED);
             response = responseFalse;
         }
-        controller.index();
+        //indexing();
         return response;
     }
 
@@ -84,21 +84,31 @@ public class IndexingServiceImpl implements IndexingService {
         }
         parsePage.clearUniqueLinks();
 
-        final ThreadFactory threadFactory = new ThreadFactoryBuilder()
-                .setNameFormat("Cайт: %d")
-                .build();
-        executor = (ThreadPoolExecutor) Executors.newFixedThreadPool(1, threadFactory);
-        executor.setMaximumPoolSize(Runtime.getRuntime().availableProcessors());
+//        final ThreadFactory threadFactory = new ThreadFactoryBuilder()
+//                .setNameFormat("Cайт: %d")
+//                .build();
+//        executor = (ThreadPoolExecutor) Executors.newFixedThreadPool(1, threadFactory);
+//        //executor.setMaximumPoolSize(Runtime.getRuntime().availableProcessors());
+//        executor.setMaximumPoolSize(1);
+
 
         siteListFromConfig.getSites().forEach(e -> {
-            if (parsePage.isCancelled()) {
-                executor.shutdownNow();
-            } else {
-                executor.execute(() -> indexingPage(e.getUrl()));
-            }
+            boolean isCreate = !siteRepository.existsByName(e.getName());
+            parsingOneSite(e.getUrl(), e.getName(), isCreate);
+
+
+//            if (parsePage.isCancelled()) {
+//                //log.info("debug: isCancelled");
+//                executor.shutdownNow();
+//            } else {
+//                //log.info("debug: execute");
+//                //executor.execute(() -> indexingPage(e.getUrl()));
+//                executor.execute(() -> parsingOneSite(e.getUrl(), e.getName(), isCreate));
+//                //executor.shutdown();
+//            }
         });
 
-        executor.shutdown();
+        //executor.shutdown();
         return true;
     }
 

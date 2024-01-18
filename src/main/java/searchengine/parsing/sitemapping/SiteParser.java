@@ -14,7 +14,6 @@ import searchengine.repository.PageRepository;
 import searchengine.repository.SiteRepository;
 
 import java.util.List;
-import java.util.Set;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -47,12 +46,13 @@ public class SiteParser {
     }
 
     private static final int PARALLELISM = 120;
-    private static final ForkJoinPool pool = new ForkJoinPool(PARALLELISM);
+    private ForkJoinPool pool = new ForkJoinPool(PARALLELISM);
 
     /**
      *  Парсинг страниц
      */
     public void getLinks() {
+        pool = new ForkJoinPool(PARALLELISM);
         parsePage = preparePage();
         pool.execute(parsePage);
 
@@ -83,6 +83,7 @@ public class SiteParser {
         parsePage.setDomain(domain);
         parsePage.setParent(null);
         parsePage.setSiteId(siteId);
+        log.info("debug: preparePage() siteId:{}, domain:{}, url:{}", siteId, domain, url);
         return parsePage;
     }
 

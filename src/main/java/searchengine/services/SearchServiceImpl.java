@@ -53,6 +53,7 @@ public class SearchServiceImpl implements SearchService {
      */
     @Override
     public Response search(String query, String site, int offset, int limit) {
+        printInfoBySearch(query, site, offset, limit);
         this.offset = offset;   // Необходим в методе formationForOneSite
         this.limit = limit;     // - // -
 
@@ -89,6 +90,16 @@ public class SearchServiceImpl implements SearchService {
         setSnippetForSearchResults(lemmaList);
 
         return setSearchData();
+    }
+
+    private void printInfoBySearch(String query, String site, int offset, int limit) {
+        System.out.println();
+        log.info("=========================================");
+        log.info("Поисковый запрос: {}", query);
+        log.info("Сайт: {}", site);
+        log.info("Сдвиг от 0: {}", offset);
+        log.info("Количество результатов: {}", limit);
+        log.info("=========================================");
     }
 
     /**
@@ -346,9 +357,20 @@ public class SearchServiceImpl implements SearchService {
             listPosition.put(lemma.getLemma(), listIndexByLemmaFromContent);
         }
 
-        Map<String, Integer> mapFoundWords = setMapFoundWords(listPosition, lemmaList);
+        Map<String, Integer> mapFoundWords = new HashMap<>();
+        try {
+            mapFoundWords = setMapFoundWords(listPosition, lemmaList);
+        } catch (Exception e) {
+            log.warn("debug: mapFoundWords is null");
+        }
 
-        String snippet = findSnippet(mapFoundWords, splitContent, content);
+
+        String snippet = "";
+        try {
+            snippet = findSnippet(mapFoundWords, splitContent, content);
+        } catch (Exception e) {
+            log.warn("debug: snippet is ''");
+        }
 
         log.info("timeElapsed: {}", System.currentTimeMillis() - startTime);
         return snippet;
