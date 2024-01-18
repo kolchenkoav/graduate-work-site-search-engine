@@ -54,7 +54,7 @@ public class SearchServiceImpl implements SearchService {
     @Override
     public Response search(String query, String site, int offset, int limit) {
         printInfoBySearch(query, site, offset, limit);
-        this.offset = offset;   // Необходим в методе formationForOneSite
+        this.offset = offset;   // Необходим в методе formationForOneSite и sortSearchResultsList()
         this.limit = limit;     // - // -
 
         List<Integer> siteIdList = getSiteIdList(site);
@@ -103,7 +103,7 @@ public class SearchServiceImpl implements SearchService {
     }
 
     /**
-     * Возвращает список сущностей Lemma из DB
+     * Возвращает список сущностей Lemma из DB если количество лемм совпадает
      *
      * @param siteIdList список siteId
      * @param lemmaListFromQuery список лемм из запроса
@@ -114,6 +114,13 @@ public class SearchServiceImpl implements SearchService {
         for (Integer siteId : siteIdList) {
             for (String lem : lemmaListFromQuery) {
                 lemmaRepository.findBySiteIdAndLemma(siteId, lem).ifPresent(lemmaList::add);
+            }
+            long countOfWordsFound = lemmaList.stream().filter(lemma -> lemma.getSiteId() == siteId).count();
+            if (countOfWordsFound == 0) {
+                continue;
+            }
+            if (countOfWordsFound != lemmaListFromQuery.size()) {
+                lemmaList.removeIf(lemma -> lemma.getSiteId() == siteId);
             }
         }
         lemmaList.removeIf(lemma -> lemma.getLemma().length() == 1);
@@ -165,13 +172,15 @@ public class SearchServiceImpl implements SearchService {
     }
 
     /**
-     *  Сортировка списка SearchResults
+     *  Сортировка списка SearchResults и после применение offset и limit
      */
     private void sortSearchResultsList() {
         searchResultsList = searchResultsList.stream()
                 .sorted(Comparator
                         .comparing(SearchResults::getRelevance)
                         .reversed())
+                .skip(offset)
+                .limit(limit)
                 .toList();
     }
 

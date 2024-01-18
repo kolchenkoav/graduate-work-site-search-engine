@@ -57,6 +57,10 @@ public class SiteParser {
         pool.execute(parsePage);
 
         while (!parsePage.isDone() && !parsePage.getCancelled().get()) {
+            try {
+                Thread.sleep(10);
+            } catch (InterruptedException ignored) {
+            }
         }
 
         if (parsePage.getCancelled().get()) {
@@ -83,7 +87,6 @@ public class SiteParser {
         parsePage.setDomain(domain);
         parsePage.setParent(null);
         parsePage.setSiteId(siteId);
-        log.info("debug: preparePage() siteId:{}, domain:{}, url:{}", siteId, domain, url);
         return parsePage;
     }
 

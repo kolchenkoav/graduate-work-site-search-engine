@@ -7,7 +7,6 @@ import org.springframework.stereotype.Service;
 import searchengine.config.Messages;
 import searchengine.config.Site;
 import searchengine.config.SiteList;
-import searchengine.controllers.DefaultController;
 import searchengine.dto.Response;
 import searchengine.dto.indexing.IndexingErrorResponse;
 import searchengine.dto.indexing.IndexingResponse;
@@ -24,12 +23,7 @@ import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ThreadFactory;
-import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.atomic.AtomicBoolean;
-
-import com.google.common.util.concurrent.ThreadFactoryBuilder;
 
 import javax.transaction.Transactional;
 
@@ -45,9 +39,7 @@ public class IndexingServiceImpl implements IndexingService {
     private final List<SiteE> siteEList = new ArrayList<>();
     private final PageRepository pageRepository;
     private final SiteRepository siteRepository;
-    private final DefaultController controller;
-    private Response response;
-    private ThreadPoolExecutor executor;
+
 
     /******************************************************************************************
      * Запуск полной индексации
@@ -56,6 +48,7 @@ public class IndexingServiceImpl implements IndexingService {
      */
     @Override
     public Response startIndexing() {
+        Response response;
         parsePage.setCancelled(new AtomicBoolean(false));
         if (indexing()) {
             IndexingResponse responseTrue = new IndexingResponse();
@@ -67,7 +60,6 @@ public class IndexingServiceImpl implements IndexingService {
             responseFalse.setError(Messages.INDEXING_HAS_ALREADY_STARTED);
             response = responseFalse;
         }
-        //indexing();
         return response;
     }
 
@@ -84,31 +76,10 @@ public class IndexingServiceImpl implements IndexingService {
         }
         parsePage.clearUniqueLinks();
 
-//        final ThreadFactory threadFactory = new ThreadFactoryBuilder()
-//                .setNameFormat("Cайт: %d")
-//                .build();
-//        executor = (ThreadPoolExecutor) Executors.newFixedThreadPool(1, threadFactory);
-//        //executor.setMaximumPoolSize(Runtime.getRuntime().availableProcessors());
-//        executor.setMaximumPoolSize(1);
-
-
         siteListFromConfig.getSites().forEach(e -> {
             boolean isCreate = !siteRepository.existsByName(e.getName());
             parsingOneSite(e.getUrl(), e.getName(), isCreate);
-
-
-//            if (parsePage.isCancelled()) {
-//                //log.info("debug: isCancelled");
-//                executor.shutdownNow();
-//            } else {
-//                //log.info("debug: execute");
-//                //executor.execute(() -> indexingPage(e.getUrl()));
-//                executor.execute(() -> parsingOneSite(e.getUrl(), e.getName(), isCreate));
-//                //executor.shutdown();
-//            }
         });
-
-        //executor.shutdown();
         return true;
     }
 
@@ -182,6 +153,7 @@ public class IndexingServiceImpl implements IndexingService {
      */
     @Override
     public Response stopIndexing() {
+        Response response;
         if (stopping()) {
             IndexingResponse responseTrue = new IndexingResponse();
             responseTrue.setResult(true);
@@ -211,8 +183,6 @@ public class IndexingServiceImpl implements IndexingService {
 
             siteParser.forceStop();
 
-            executor.shutdownNow();
-
             siteEList.stream()
                     .filter(e -> e.getStatus() == Status.INDEXING)
                     .forEach(e -> {
@@ -238,6 +208,7 @@ public class IndexingServiceImpl implements IndexingService {
      */
     @Override
     public Response indexPage(String url) {
+        Response response;
         if (indexingPage(url)) {
             IndexingResponse responseTrue = new IndexingResponse();
             responseTrue.setResult(true);
@@ -267,12 +238,10 @@ public class IndexingServiceImpl implements IndexingService {
                 .findFirst()
                 .orElse(null);
         if (site == null) {
-            log.warn("site == null");
             return false;
         }
 
         String name = site.getName();
-
 
         SiteE siteE = siteRepository.findByName(name).orElse(null);
         if (siteE == null) {

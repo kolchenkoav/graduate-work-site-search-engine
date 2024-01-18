@@ -96,9 +96,7 @@ public class ParsePage extends RecursiveTask<Set<String>> {
                     .get();
         } catch (HttpStatusException e) {
             code = e.getStatusCode();
-            log.warn("debug: code: {}", code);
         } catch (IOException ex) {
-            log.warn("debug: ex.getMessage: {}", ex.getMessage());
             return null;
         }
         return doc;
