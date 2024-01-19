@@ -40,46 +40,51 @@ public class StatisticsServiceDBImpl implements StatisticsService {
         List<DetailedStatisticsItem> detailed = new ArrayList<>();
         List<Site> sitesList = sites.getSites();
         for (Site site : sitesList) {
-            DetailedStatisticsItem item = new DetailedStatisticsItem();
-            item.setName(site.getName());
-            item.setUrl(site.getUrl());
 
             SiteE siteE = siteRepository.findByName(site.getName()).orElse(null);
             if (siteE == null) {
                 continue;
             }
 
-            int pagesCount = 0;
-            try {
-                pagesCount = pageRepository.countBySiteId(siteE.getSiteId());
-            } catch (Exception e) {
-                log.warn("pagesCount = 0");
-            }
-            int lemmasCount = 0;
-            try {
-                lemmasCount = lemmaTRepository.countBySiteId(siteE.getSiteId());
-            } catch (Exception e) {
-                log.warn("lemmasCount = 0");
-            }
-
+            int pagesCount = getPageCount(siteE);
+            int lemmasCount = getLemmasCount(siteE);
+            DetailedStatisticsItem item = new DetailedStatisticsItem();
+            item.setName(site.getName());
+            item.setUrl(site.getUrl());
             item.setPages(pagesCount);
             item.setLemmas(lemmasCount);
             item.setStatus(siteE.getStatus().toString());
-            if (siteE.getLastError() == null) {
-                item.setError("");
-            } else {
-                item.setError(siteE.getLastError());
-            }
+            item.setError(siteE.getLastError().isBlank() ? "" : siteE.getLastError());
             item.setStatusTime(siteE.getStatusTime().getTime());
+            detailed.add(item);
+
             total.setPages(total.getPages() + pagesCount);
             total.setLemmas(total.getLemmas() + lemmasCount);
-            detailed.add(item);
         }
-
         data.setTotal(total);
         data.setDetailed(detailed);
         response.setStatistics(data);
         response.setResult(true);
         return response;
+    }
+
+    private int getLemmasCount(SiteE siteE) {
+        int lemmasCount = 0;
+        try {
+            lemmasCount = lemmaTRepository.countBySiteId(siteE.getSiteId());
+        } catch (Exception e) {
+            log.warn("lemmasCount = 0");
+        }
+        return lemmasCount;
+    }
+
+    private int getPageCount(SiteE siteE) {
+        int pagesCount = 0;
+        try {
+            pagesCount = pageRepository.countBySiteId(siteE.getSiteId());
+        } catch (Exception e) {
+            log.warn("pagesCount = 0");
+        }
+        return pagesCount;
     }
 }

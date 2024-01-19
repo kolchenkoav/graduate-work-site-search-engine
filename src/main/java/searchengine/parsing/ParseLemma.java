@@ -33,6 +33,9 @@ public class ParseLemma {
     private int currentPos;
 
     @Transactional
+    /**
+     * Сохраняет в БД леммы и индексы
+     */
     public void parsing(Page page) {
 
         String content = page.getContent();
@@ -57,8 +60,16 @@ public class ParseLemma {
         }
     }
 
+    /**
+     * Вывод в консоль процесса парсинга
+     *
+     * @param siteId        - id сайта
+     * @param pageId        - id страницы
+     * @param countOfLemmas - кол-во лемм
+     * @param url           - ссылка на страницу
+     */
     private void printMessageAboutProgress(int siteId, int pageId, int countOfLemmas, String url) {
-        if ((endPos - beginPos) == 0 ) {
+        if ((endPos - beginPos) == 0) {
             log.info("Writing lemmas and indices: {} ", countOfLemmas);
             return;
         }
@@ -71,6 +82,14 @@ public class ParseLemma {
         System.out.print(builder + "\r");
     }
 
+    /**
+     * Возвращает лемму
+     * если нет в БД то создаёт новую
+     *
+     * @param siteId - id сайта
+     * @param key    - лемма
+     * @return lemma
+     */
     private Lemma parseOneLemma(int siteId, String key) {
         Lemma result = lemmaRepository.findBySiteIdAndLemma(siteId, key).orElse(null);
         if (result == null) {

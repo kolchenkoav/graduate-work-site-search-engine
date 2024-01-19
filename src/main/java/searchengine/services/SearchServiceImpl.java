@@ -77,10 +77,6 @@ public class SearchServiceImpl implements SearchService {
             return setResponseFalse("Not found lemmas in DB");
         }
 
-        lemmaList.forEach(lemma -> {
-            System.out.println(lemma.getLemma()+" "+lemma.getFrequency());
-        });
-
         siteIdList = lemmaList.stream().map(Lemma::getSiteId).distinct().toList();
 
         lemmaList = lemmaList.stream().sorted(Comparator.comparingInt(Lemma::getFrequency)).toList();
@@ -109,7 +105,7 @@ public class SearchServiceImpl implements SearchService {
     /**
      * Возвращает список сущностей Lemma из DB если количество лемм совпадает
      *
-     * @param siteIdList список siteId
+     * @param siteIdList         список siteId
      * @param lemmaListFromQuery список лемм из запроса
      * @return список найденных в БД лемм
      */
@@ -154,7 +150,7 @@ public class SearchServiceImpl implements SearchService {
      * Заполнение списка SearchResults
      *
      * @param siteIdList список siteId
-     * @param lemmaList список лемм
+     * @param lemmaList  список лемм
      */
     private void fillSearchResultsList(List<Integer> siteIdList, List<Lemma> lemmaList) {
         searchResultsList = new ArrayList<>();
@@ -168,9 +164,7 @@ public class SearchServiceImpl implements SearchService {
                     results = searchResults;
                     int ind = relevance[j].length - 1;
                     if (results.getNumber() == (j + 1) && results.getSiteId() == i) {
-                        // TODO
                         results.setRelevance(relevance[j][ind]);
-
                     }
                 }
             }
@@ -178,10 +172,11 @@ public class SearchServiceImpl implements SearchService {
     }
 
     /**
-     *  Сортировка списка SearchResults и после применение offset и limit
+     * Сортировка списка SearchResults и после применение offset и limit
      */
     private void sortSearchResultsList() {
-        searchResultsList.removeIf(searchResults -> searchResults.getRelevance() == 0.0);
+        searchResultsList.removeIf(searchResults -> searchResults.getRelevance() == 0.0); // Удаляет где == 0
+
         searchResultsList = searchResultsList.stream()
                 .sorted(Comparator
                         .comparing(SearchResults::getRelevance)
@@ -278,7 +273,7 @@ public class SearchServiceImpl implements SearchService {
         // 4. По первой, самой редкой лемме из списка, находить все страницы, на которых она встречается
         List<IndexE> indexList = new ArrayList<>(Objects
                 .requireNonNull(indexRepository.findByLemmaId(lemmaList.get(0).getLemmaId())
-                        .orElse(null)).stream().skip(offset).limit(limit).toList() );
+                        .orElse(null)).stream().skip(offset).limit(limit).toList());
         List<Page> pageList = new ArrayList<>();
         for (IndexE indexE : indexList) {
             Page page = pageRepository.findByPageId(indexE.getPageId());
@@ -329,13 +324,6 @@ public class SearchServiceImpl implements SearchService {
         }
         setAbsoluteRelevance(pageList, lemmaList);
         setRelativeRelevance(pageList, lemmaList);
-
-//        for (int j = 0; j < relevance.length; j++) {
-//            int k = relevance[j].length-1;
-//            if (relevance[j][k] == 0) {
-//            relevance[j].
-//            }
-//        }
     }
 
     private void setRelativeRelevance(List<Page> pageList, List<Lemma> lemmaList) {
@@ -387,7 +375,6 @@ public class SearchServiceImpl implements SearchService {
             log.warn("debug: mapFoundWords is null");
         }
 
-
         String snippet = "";
         try {
             snippet = findSnippet(mapFoundWords, splitContent, content);
@@ -403,7 +390,7 @@ public class SearchServiceImpl implements SearchService {
      * Получение mapFoundWords для правильного отображения списка лемм
      *
      * @param listPosition список   < лемма, список индексов в контесте для этой леммы>
-     * @param lemmaList поисковые леммы
+     * @param lemmaList    поисковые леммы
      * @return mapFoundWords    < лемма, индекс >
      */
     private Map<String, Integer> setMapFoundWords(Map<String, List<Integer>> listPosition, List<Lemma> lemmaList) {
@@ -448,7 +435,7 @@ public class SearchServiceImpl implements SearchService {
 
     private boolean isFoundIndexNear(int prevPosition, int cur) {
         return prevPosition == cur || prevPosition == cur - 1 || prevPosition == cur - 2 || prevPosition == cur - 3 ||
-               prevPosition == cur + 1 || prevPosition == cur + 2 || prevPosition == cur + 3;
+                prevPosition == cur + 1 || prevPosition == cur + 2 || prevPosition == cur + 3;
     }
 
     /**
@@ -469,9 +456,9 @@ public class SearchServiceImpl implements SearchService {
                         w = w.replace(".com", "");
                     }
                     List<String> lemmaListFromQuery = Objects.requireNonNull(lemmaFinder).collectLemmas(w)
-                                    .keySet()
-                                    .stream()
-                                    .toList();
+                            .keySet()
+                            .stream()
+                            .toList();
                     String result = "";
                     if (!lemmaListFromQuery.isEmpty()) {
                         String regex = "[^A-Za-zА-Яа-я0-9]";
@@ -489,8 +476,8 @@ public class SearchServiceImpl implements SearchService {
      * Находит нужный фрагмент и выделяет слова жирным
      *
      * @param mapFoundWords мапа слово - позиция
-     * @param splitContent
-     * @param content      контент
+     * @param splitContent  - список слов контента
+     * @param content       контент
      * @return сниппет
      */
     private String findSnippet(Map<String, Integer> mapFoundWords, List<String> splitContent, String content) {
@@ -505,10 +492,13 @@ public class SearchServiceImpl implements SearchService {
         int beginIndex;
         int endIndex;
 
-        beginIndex = Math.max(index - 130, 0);
-        endIndex = Math.min(index + 130, content.length());
-        snippet = "<... " + content.substring(beginIndex, endIndex) + " ...>";
+        beginIndex = Math.max(index - 130, 0);                                  // начало сниппета
+        endIndex = Math.min(index + 130, content.length());                     // конец сниппета
+        snippet = "<... " + content.substring(beginIndex, endIndex) + " ...>";  // обрамление
 
+        /**
+         * Выделение слов ЖИРНЫМ
+         */
         for (Integer position : listPos) {
             String sourceWord = splitContent.get(position);
             index = 0;

@@ -8,7 +8,6 @@ import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
-import org.springframework.context.annotation.Scope;
 import org.springframework.stereotype.Component;
 import searchengine.model.Page;;
 import searchengine.parsing.ParseLemma;
@@ -29,7 +28,6 @@ import static searchengine.parsing.sitemapping.Utils.*;
 @Getter
 @Setter
 @Component
-//@Scope("prototype")
 public class ParsePage extends RecursiveTask<Set<String>> {
     private final ParseLemma parseLemma;
     private final PageRepository pageRepository;

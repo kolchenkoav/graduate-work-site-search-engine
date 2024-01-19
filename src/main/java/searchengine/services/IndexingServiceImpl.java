@@ -40,7 +40,6 @@ public class IndexingServiceImpl implements IndexingService {
     private final PageRepository pageRepository;
     private final SiteRepository siteRepository;
 
-
     /******************************************************************************************
      * Запуск полной индексации
      *
@@ -223,7 +222,9 @@ public class IndexingServiceImpl implements IndexingService {
     }
 
     /**
-     * Индексация отдельной страницы
+     * Индексация отдельной страницы сайта
+     * если найдена в БД то изменение (удаление индексов, лемм и страниц),
+     * иначе создание записи в таблице siteE
      *
      * @return true -Успешно, false -ошибка
      */
@@ -256,16 +257,9 @@ public class IndexingServiceImpl implements IndexingService {
         siteE.setLastError("");
         siteRepository.save(siteE);
 
-        Document doc = parsePage.getDocumentByUrl(url);
-        parsePage.setSiteId(siteE.getSiteId());
-        parsePage.setDomain(domain);
-        parsePage.setUrl(url);
-
-        Page page = parsePage.savePage(doc);
-        if (page == null) {
+        if (!saveLemmasAndIndicesForOnePage(url, siteE, domain)) {
             return false;
         }
-        siteParser.parseSinglePage(page);
 
         siteE.setStatus(Status.INDEXED);
         siteE.setStatusTime(Utils.setNow());
@@ -274,6 +268,26 @@ public class IndexingServiceImpl implements IndexingService {
         return true;
     }
 
+    private boolean saveLemmasAndIndicesForOnePage(String url, SiteE siteE, String domain) {
+        Document doc = parsePage.getDocumentByUrl(url);
+        parsePage.setSiteId(siteE.getSiteId());
+        parsePage.setDomain(domain);
+        parsePage.setUrl(url);
+
+        Page page = parsePage.savePage(doc);    // сохранение страницы в БД
+        if (page == null) {
+            return false;
+        }
+        siteParser.parseSinglePage(page);       // парсинг и сохранение лемм и индексов
+        return true;
+    }
+
+    /**
+     * Удаляет страницу
+     *
+     * @param siteId - id сайта
+     * @param path   - путь
+     */
     private void deletePage(int siteId, String path) {
         log.info("The page {} by sideId: {} is deleted", path, siteId);
         Page page = pageRepository.findBySiteIdAndPath(siteId, path);
@@ -283,17 +297,23 @@ public class IndexingServiceImpl implements IndexingService {
         }
     }
 
+    /**
+     * Уменьшает Frequency и Удаляет леммы == 0
+     *
+     * @param page   - страница
+     * @param siteId - id сайта
+     */
     private void deleteLemmas(Page page, int siteId) {
         List<IndexE> indexList = indexRepository.findByPageId(page.getPageId());
         List<Lemma> lemmaList = new ArrayList<>();
         indexList.forEach(e -> {
                     Lemma lemma = lemmaRepository.findByLemmaId(e.getLemmaId());
-                    lemma.setFrequency(lemma.getFrequency() - 1);
+                    lemma.setFrequency(lemma.getFrequency() - 1);                   // Frequency - 1
                     lemmaList.add(lemma);
                 }
         );
         lemmaRepository.saveAll(lemmaList);
         log.info("Lemmas by pageId: {} are removed", page.getPageId());
-        lemmaRepository.deleteBySiteIdAndFrequency(siteId, 0);
+        lemmaRepository.deleteBySiteIdAndFrequency(siteId, 0);                  // delete if Frequency == 0
     }
 }

@@ -116,6 +116,11 @@ public class SiteParser {
         pageList.stream().takeWhile(e -> !this.getCancelledSite().get()).forEach(this::parseSinglePage);
     }
 
+    /**
+     * Для отдельной страницы парсятся леммы и происходит запись лемм и индексов
+     *
+     * @param page - страница
+     */
     public void parseSinglePage(Page page) {
         parseLemma.setCurrentPos(page.getPageId());
         if (!getCancelledSite().get()) {
