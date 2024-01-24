@@ -7,13 +7,10 @@ import searchengine.model.Page;
 import javax.transaction.Transactional;
 import java.util.List;
 
-
 @Repository
 @Transactional
-public interface PageRepository extends JpaRepository<Page, Long>  {
+public interface PageRepository extends JpaRepository<Page, Long> {
     int countBySiteId(int siteId);
-
-    void deleteBySiteId(int siteId);
 
     List<Page> findBySiteIdAndCode(int siteId, int code);
 

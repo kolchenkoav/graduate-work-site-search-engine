@@ -18,11 +18,7 @@ public interface SiteRepository extends JpaRepository<SiteE, Integer> {
 
     int countByNameAndStatus(String name, Status indexing);
 
-    void deleteAllByName(String name);
-
     boolean existsByName(String name);
-
-    String findBySiteId(int siteId);
 
     SiteE getSiteEBySiteId(int siteId);
 }

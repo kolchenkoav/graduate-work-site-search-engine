@@ -4,16 +4,13 @@ import org.apache.lucene.morphology.LuceneMorphology;
 import org.apache.lucene.morphology.english.EnglishLuceneMorphology;
 import org.apache.lucene.morphology.russian.RussianLuceneMorphology;
 
-
 import java.io.IOException;
 import java.util.*;
-
 
 public class LemmaFinder {
     private final LuceneMorphology morphologyRus;
     private final LuceneMorphology morphologyEng;
     private static final String[] particlesNames = new String[]{"МЕЖД", "ПРЕДЛ", "СОЮЗ", "CONJ", "INT", "PREP", "ARTICLE", "PART"};
-
 
     public static LemmaFinder getInstance() {
         try {

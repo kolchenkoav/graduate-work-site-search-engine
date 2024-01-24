@@ -1,9 +1,10 @@
 package searchengine.services;
 
+import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.jsoup.nodes.Document;
 import org.springframework.stereotype.Service;
+
 import searchengine.config.Messages;
 import searchengine.config.Site;
 import searchengine.config.SiteList;
@@ -11,7 +12,6 @@ import searchengine.dto.Response;
 import searchengine.dto.indexing.IndexingErrorResponse;
 import searchengine.dto.indexing.IndexingResponse;
 import searchengine.model.*;
-import searchengine.parsing.sitemapping.ParsePage;
 import searchengine.parsing.sitemapping.SiteParser;
 import searchengine.parsing.sitemapping.Utils;
 import searchengine.repository.IndexRepository;
@@ -23,7 +23,9 @@ import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
-import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.ThreadPoolExecutor;
 
 import javax.transaction.Transactional;
 
@@ -34,11 +36,11 @@ public class IndexingServiceImpl implements IndexingService {
     private final LemmaRepository lemmaRepository;
     private final IndexRepository indexRepository;
     private final SiteParser siteParser;
-    private final ParsePage parsePage;
     private final SiteList siteListFromConfig;
     private final List<SiteE> siteEList = new ArrayList<>();
     private final PageRepository pageRepository;
     private final SiteRepository siteRepository;
+    private ThreadPoolExecutor executor;
 
     /******************************************************************************************
      * Запуск полной индексации
@@ -48,7 +50,7 @@ public class IndexingServiceImpl implements IndexingService {
     @Override
     public Response startIndexing() {
         Response response;
-        parsePage.setCancelled(new AtomicBoolean(false));
+        SiteParser.setCancel(false);
         if (indexing()) {
             IndexingResponse responseTrue = new IndexingResponse();
             responseTrue.setResult(true);
@@ -68,17 +70,30 @@ public class IndexingServiceImpl implements IndexingService {
      * @return true -Успешно, false -ошибка
      */
     private boolean indexing() {
+
         if (siteListFromConfig.getSites().stream()
                 .map(e -> siteRepository.countByNameAndStatus(e.getName(), Status.INDEXING))
                 .reduce(0, Integer::sum) > 0) {
             return false;
         }
-        parsePage.clearUniqueLinks();
+        siteParser.clearUniqueLinks();
+
+        final ThreadFactory threadFactory = new ThreadFactoryBuilder()
+                .setNameFormat("Cайт: %d")
+                .build();
+        executor = (ThreadPoolExecutor) Executors.newFixedThreadPool(1, threadFactory);
+        executor.setMaximumPoolSize(Runtime.getRuntime().availableProcessors());
 
         siteListFromConfig.getSites().forEach(e -> {
             boolean isCreate = !siteRepository.existsByName(e.getName());
-            parsingOneSite(e.getUrl(), e.getName(), isCreate);
+            if (SiteParser.getCancel()) {
+                executor.shutdownNow();
+            } else {
+                executor.execute(() -> parsingOneSite(e.getUrl(), e.getName(), isCreate));
+            }
         });
+
+        executor.shutdown();
         return true;
     }
 
@@ -91,7 +106,9 @@ public class IndexingServiceImpl implements IndexingService {
      */
     @Transactional
     void parsingOneSite(String url, String name, boolean isCreate) {
-        parsePage.setCancelled(new AtomicBoolean(false));
+        if (SiteParser.getCancel()) {
+            return;
+        }
         SiteE siteE;
         int siteId;
         if (isCreate) {
@@ -178,7 +195,6 @@ public class IndexingServiceImpl implements IndexingService {
                 log.warn(Messages.INDEXING_IS_NOT_RUNNING);
                 return false;
             }
-            parsePage.setCancelled(new AtomicBoolean(true));
 
             siteParser.forceStop();
 
@@ -229,6 +245,7 @@ public class IndexingServiceImpl implements IndexingService {
      * @return true -Успешно, false -ошибка
      */
     private boolean indexingPage(String url) {
+        SiteParser.setCancel(false);
         String domain = Utils.getProtocolAndDomain(url);
 
         if (siteListFromConfig.getSites().stream().noneMatch(site -> site.getUrl().equals(domain))) {
@@ -269,12 +286,7 @@ public class IndexingServiceImpl implements IndexingService {
     }
 
     private boolean saveLemmasAndIndicesForOnePage(String url, SiteE siteE, String domain) {
-        Document doc = parsePage.getDocumentByUrl(url);
-        parsePage.setSiteId(siteE.getSiteId());
-        parsePage.setDomain(domain);
-        parsePage.setUrl(url);
-
-        Page page = parsePage.savePage(doc);    // сохранение страницы в БД
+        Page page = siteParser.savePage(url, siteE, domain);
         if (page == null) {
             return false;
         }

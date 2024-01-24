@@ -27,7 +27,6 @@ public class ApiController {
 
     @GetMapping("/startIndexing")
     public ResponseEntity<Response> startIndexing() {
-        statistics();
         return ResponseEntity.ok(indexingService.startIndexing());
     }
 
@@ -43,9 +42,9 @@ public class ApiController {
 
     @GetMapping("/search")
     public ResponseEntity<Response> search(@RequestParam String query,
-                                    @RequestParam(required = false) String site,
-                                    @RequestParam int offset,
-                                    @RequestParam(required = false) int limit) {
+                                           @RequestParam(required = false) String site,
+                                           @RequestParam int offset,
+                                           @RequestParam(required = false) int limit) {
         return ResponseEntity.ok(searchService.search(query, site, offset, limit));
     }
 }

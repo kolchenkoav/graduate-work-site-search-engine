@@ -4,6 +4,7 @@ import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
+import org.jsoup.nodes.Document;
 import org.springframework.stereotype.Component;
 import searchengine.config.Messages;
 import searchengine.model.Page;
@@ -30,9 +31,17 @@ public class SiteParser {
     private int siteId;
     private String domain;
     private String url;
-    private ParsePage parsePage;
+    private ParsePageTask parsePageTask;
 
-    private AtomicBoolean cancelledSite = new AtomicBoolean(false);
+    private static AtomicBoolean cancelled = new AtomicBoolean(false);
+
+    public static void setCancel(boolean b) {
+        cancelled.set(b);
+    }
+
+    public static boolean getCancel() {
+        return cancelled.get();
+    }
 
     public void initSiteParser(int siteId, String domain, String url) {
         this.siteId = siteId;
@@ -41,53 +50,52 @@ public class SiteParser {
     }
 
     public void forceStop() {
+        setCancel(true);
         pool.shutdownNow();
-        this.setCancelledSite(new AtomicBoolean(true));
     }
 
     private static final int PARALLELISM = 120;
     private ForkJoinPool pool = new ForkJoinPool(PARALLELISM);
 
     /**
-     *  Парсинг страниц
+     * Парсинг страниц
      */
     public void getLinks() {
         pool = new ForkJoinPool(PARALLELISM);
-        parsePage = preparePage();
-        pool.execute(parsePage);
+        parsePageTask = preparePage();
+        pool.execute(parsePageTask);
 
-        while (!parsePage.isDone() && !parsePage.getCancelled().get()) {
+        while (!parsePageTask.isDone() && !getCancel()) {
             try {
                 Thread.sleep(10);
             } catch (InterruptedException ignored) {
             }
         }
 
-        if (parsePage.getCancelled().get()) {
+        if (getCancel()) {
             pool.shutdownNow();
             forceStop();
             log.info("Отмена индексации... ");
-            setCancelledSite(new AtomicBoolean(true));
         } else {
             pool.shutdown();
         }
         try {
-            parsePage.join();
+            parsePageTask.join();
             saveSite();
         } catch (Exception e) {
             log.error("parsePage.join() {}", e.getMessage());
         }
-        parsePage = null;
+        parsePageTask = null;
     }
 
-    private ParsePage preparePage() {
-        parsePage = new ParsePage(parseLemma, pageRepository);
+    private ParsePageTask preparePage() {
+        parsePageTask = new ParsePageTask(parseLemma, pageRepository);
 
-        parsePage.setUrl(url);
-        parsePage.setDomain(domain);
-        parsePage.setParent(null);
-        parsePage.setSiteId(siteId);
-        return parsePage;
+        parsePageTask.setUrl(url);
+        parsePageTask.setDomain(domain);
+        parsePageTask.setParent(null);
+        parsePageTask.setSiteId(siteId);
+        return parsePageTask;
     }
 
     private void saveSite() {
@@ -96,13 +104,13 @@ public class SiteParser {
             log.warn("Сайт с ID: {} не найден", siteE);
             return;
         }
-        siteE.setStatus(parsePage.isCancelled() || parsePage.getCancelled().get() ? Status.FAILED : Status.INDEXING);
+        siteE.setStatus(getCancel() ? Status.FAILED : Status.INDEXING);
         siteE.setStatusTime(Utils.setNow());
 
         getLemmasForAllPages(siteE);
 
-        siteE.setStatus(getCancelledSite().get() || parsePage.isCancelled() || parsePage.getCancelled().get() ? Status.FAILED : Status.INDEXED);
-        siteE.setLastError(getCancelledSite().get() || parsePage.isCancelled() || parsePage.getCancelled().get() ? Messages.INDEXING_STOPPED_BY_USER : "");
+        siteE.setStatus(getCancel() ? Status.FAILED : Status.INDEXED);
+        siteE.setLastError(getCancel() ? Messages.INDEXING_STOPPED_BY_USER : "");
         siteE.setStatusTime(Utils.setNow());
         siteRepository.save(siteE);
         log.info("===>>> site '{}' saved", siteE.getName());
@@ -111,9 +119,9 @@ public class SiteParser {
     public void getLemmasForAllPages(SiteE siteE) {
         List<Page> pageList = pageRepository.findBySiteIdAndCode(siteE.getSiteId(), 200);
         parseLemma.setBeginPos(pageList.get(0).getPageId());
-        parseLemma.setEndPos(pageList.get(pageList.size()-1).getPageId());
+        parseLemma.setEndPos(pageList.get(pageList.size() - 1).getPageId());
 
-        pageList.stream().takeWhile(e -> !this.getCancelledSite().get()).forEach(this::parseSinglePage);
+        pageList.stream().takeWhile(e -> !getCancel()).forEach(this::parseSinglePage);
     }
 
     /**
@@ -122,9 +130,22 @@ public class SiteParser {
      * @param page - страница
      */
     public void parseSinglePage(Page page) {
+
         parseLemma.setCurrentPos(page.getPageId());
-        if (!getCancelledSite().get()) {
+        if (!getCancel()) {
             parseLemma.parsing(page);
         }
+    }
+
+    public void clearUniqueLinks() {
+        ParsePageTask.clearUniqueLinks();
+    }
+
+    public Page savePage(String url, SiteE siteE, String domain) {
+        Document doc = parsePageTask.getDocumentByUrl(url);
+        parsePageTask.setSiteId(siteE.getSiteId());
+        parsePageTask.setDomain(domain);
+        parsePageTask.setUrl(url);
+        return parsePageTask.savePage(doc);
     }
 }

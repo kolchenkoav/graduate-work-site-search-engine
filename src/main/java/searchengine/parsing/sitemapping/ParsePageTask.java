@@ -1,6 +1,7 @@
 package searchengine.parsing.sitemapping;
 
 import lombok.Getter;
+import lombok.NoArgsConstructor;
 import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
 import org.jsoup.HttpStatusException;
@@ -8,7 +9,6 @@ import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
-import org.springframework.stereotype.Component;
 import searchengine.model.Page;;
 import searchengine.parsing.ParseLemma;
 import searchengine.repository.PageRepository;
@@ -20,19 +20,18 @@ import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.RecursiveTask;
-import java.util.concurrent.atomic.AtomicBoolean;
 
 import static searchengine.parsing.sitemapping.Utils.*;
 
 @Slf4j
 @Getter
 @Setter
-@Component
-public class ParsePage extends RecursiveTask<Set<String>> {
-    private final ParseLemma parseLemma;
-    private final PageRepository pageRepository;
+@NoArgsConstructor
+public class ParsePageTask extends RecursiveTask<Set<String>> {
+    private ParseLemma parseLemma;
+    private PageRepository pageRepository;
 
-    public ParsePage(ParseLemma parseLemma, PageRepository pageRepository) {
+    public ParsePageTask(ParseLemma parseLemma, PageRepository pageRepository) {
         this.parseLemma = parseLemma;
         this.pageRepository = pageRepository;
     }
@@ -40,17 +39,16 @@ public class ParsePage extends RecursiveTask<Set<String>> {
     private int siteId;
     private String url;
     private String domain;
-    private ParsePage parent;
+    private ParsePageTask parent;
     private int code = 200;
     private int countErrorPages = 0;
 
-    private AtomicBoolean cancelled = new AtomicBoolean(false);
-    private static ConcurrentHashMap<String, ParsePage> uniqueLinks = new ConcurrentHashMap<>();
+    private static ConcurrentHashMap<String, ParsePageTask> uniqueLinks = new ConcurrentHashMap<>();
 
     @Override
     protected Set<String> compute() {
         Set<String> listOfUrls = new HashSet<>();
-        List<ParsePage> tasks = new ArrayList<>();
+        List<ParsePageTask> tasks = new ArrayList<>();
 
         Document doc = getDocumentByUrl(url);
 
@@ -68,10 +66,10 @@ public class ParsePage extends RecursiveTask<Set<String>> {
             if (checkUrl(checkingUrl)) {
                 listOfUrls.add(checkingUrl);
 
-                ParsePage newParsePage = prepareNewPage(checkingUrl);
+                ParsePageTask newParsePageTask = prepareNewPage(checkingUrl);
 
-                newParsePage.fork();
-                tasks.add(newParsePage);
+                newParsePageTask.fork();
+                tasks.add(newParsePageTask);
             }
         }
 
@@ -124,8 +122,14 @@ public class ParsePage extends RecursiveTask<Set<String>> {
             log.warn("Ошибка при получении заголовка страницы: {}", url);
         }
 
-        Page page = new Page(siteId, url.substring(domain.length()), code, content, title);
+        String s = url.substring(domain.length());
+        if (!s.endsWith("/")) {
+            s = s + "/";
+        }
+        Page page = new Page(siteId, s, code, content, title);
+
         pageRepository.save(page);
+
         return page;
     }
 
@@ -139,11 +143,11 @@ public class ParsePage extends RecursiveTask<Set<String>> {
         if (countErrorPages > 0) {
             builder.append(" Pages with errors ").append(ANSI_RED).append(countErrorPages).append(ANSI_RESET);
         }
-        System.out.print(builder+"\r");
+        System.out.print(builder + "\r");
     }
 
-    private ParsePage prepareNewPage(String checkingUrl) {
-        ParsePage newParse = new ParsePage(parseLemma, pageRepository);
+    private ParsePageTask prepareNewPage(String checkingUrl) {
+        ParsePageTask newParse = new ParsePageTask(parseLemma, pageRepository);
         newParse.setUrl(checkingUrl);
         newParse.setParent(this);
         newParse.setDomain(domain);
@@ -172,7 +176,7 @@ public class ParsePage extends RecursiveTask<Set<String>> {
         return isExist;
     }
 
-    public void clearUniqueLinks() {
+    public static void clearUniqueLinks() {
         uniqueLinks.clear();
     }
 }

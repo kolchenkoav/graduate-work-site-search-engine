@@ -54,7 +54,9 @@ public class StatisticsServiceDBImpl implements StatisticsService {
             item.setPages(pagesCount);
             item.setLemmas(lemmasCount);
             item.setStatus(siteE.getStatus().toString());
-            item.setError(siteE.getLastError().isBlank() ? "" : siteE.getLastError());
+
+            item.setError(siteE.getLastError() == null ? "" : siteE.getLastError());
+
             item.setStatusTime(siteE.getStatusTime().getTime());
             detailed.add(item);
 
