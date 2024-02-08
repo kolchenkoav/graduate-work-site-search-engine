@@ -32,8 +32,8 @@ public class SearchServiceImpl implements SearchService {
 
     private final SiteList sites;
     private final LemmaFinder lemmaFinder = LemmaFinder.getInstance();
-    private double[][] relevance;
-    private double maxRelevance;
+
+
     private List<SearchResults> searchResultsList;
     int offset;
     int limit;
@@ -57,15 +57,16 @@ public class SearchServiceImpl implements SearchService {
         this.offset = offset;   // Необходим в методе formationForOneSite и sortSearchResultsList()
         this.limit = limit;     // - // -
 
+        // prepareData ================================================================================================
         List<Integer> siteIdList = getSiteIdList(site);
         if (siteIdList.isEmpty()) {
             return setResponseFalse("Search site " + site + " not found");
         }
 
         List<String> lemmaListFromQuery = Objects.requireNonNull(lemmaFinder).collectLemmas(query)
-                .keySet()
-                .stream()
-                .toList();
+            .keySet()
+            .stream()
+            .toList();
 
         List<Lemma> lemmaList = getLemmaList(siteIdList, lemmaListFromQuery);
         if (lemmaList.isEmpty()) {
@@ -80,6 +81,7 @@ public class SearchServiceImpl implements SearchService {
         siteIdList = lemmaList.stream().map(Lemma::getSiteId).distinct().toList();
 
         lemmaList = lemmaList.stream().sorted(Comparator.comparingInt(Lemma::getFrequency)).toList();
+        //=============================================================================================================
 
         fillSearchResultsList(siteIdList, lemmaList);
         if (searchResultsList.isEmpty()) {
@@ -89,7 +91,7 @@ public class SearchServiceImpl implements SearchService {
 
         setSnippetForSearchResults(lemmaList);
 
-        return setSearchData();
+        return setSearchData(searchResultsList);
     }
 
     private void printInfoBySearch(String query, String site, int offset, int limit) {
@@ -153,9 +155,11 @@ public class SearchServiceImpl implements SearchService {
      * @param lemmaList  список лемм
      */
     private void fillSearchResultsList(List<Integer> siteIdList, List<Lemma> lemmaList) {
+        double[][] relevance;
+
         searchResultsList = new ArrayList<>();
         for (Integer i : siteIdList) {
-            formationForOneSite(lemmaList.stream().filter(lemma -> lemma.getSiteId() == i).toList());
+            relevance = formationForOneSite(lemmaList.stream().filter(lemma -> lemma.getSiteId() == i).toList());
 
             // заполняем searchResultsList
             for (int j = 0; j < relevance.length; j++) {
@@ -178,12 +182,12 @@ public class SearchServiceImpl implements SearchService {
         searchResultsList.removeIf(searchResults -> searchResults.getRelevance() == 0.0); // Удаляет где == 0
 
         searchResultsList = searchResultsList.stream()
-                .sorted(Comparator
-                        .comparing(SearchResults::getRelevance)
-                        .reversed())
-                .skip(offset)
-                .limit(limit)
-                .toList();
+            .sorted(Comparator
+                .comparing(SearchResults::getRelevance)
+                .reversed())
+            .skip(offset)
+            .limit(limit)
+            .toList();
     }
 
     /**
@@ -210,7 +214,7 @@ public class SearchServiceImpl implements SearchService {
      *
      * @return responseTrue
      */
-    private Response setSearchData() {
+    private Response setSearchData(List<SearchResults> searchResultsList) {
         List<SearchData> searchDataList = new ArrayList<>();
         SearchResponse responseTrue = new SearchResponse();
         responseTrue.setError("");
@@ -218,13 +222,14 @@ public class SearchServiceImpl implements SearchService {
         responseTrue.setCount(searchResultsList.size());
         for (SearchResults searchResults : searchResultsList) {
             SiteE siteE = siteRepository.getSiteEBySiteId(searchResults.getSiteId());
-            String url = searchResults.getUrl(); // siteE.getUrl() +
-            SearchData searchData = new SearchData(siteE.getName(),
-                    siteE.getName(),
-                    url,
-                    searchResults.getTitle(),
-                    searchResults.getSnippet(),
-                    searchResults.getRelevance());
+            String uri = searchResults.getUrl().endsWith("/") ? searchResults.getUrl()
+                .substring(0, searchResults.getUrl().length() - 1) : searchResults.getUrl();
+            SearchData searchData = new SearchData(siteE.getUrl(),
+                siteE.getName(),
+                uri,
+                searchResults.getTitle(),
+                searchResults.getSnippet(),
+                searchResults.getRelevance());
             searchDataList.add(searchData);
         }
         responseTrue.setData(searchDataList);
@@ -242,17 +247,17 @@ public class SearchServiceImpl implements SearchService {
         if (site == null) {
             List<Site> siteList = sites.getSites();
             siteIdList = siteList.stream()
-                    .map(Site::getName)
-                    .map(s -> {
-                        if (siteRepository.existsByName(s)) {
-                            return siteRepository.findSiteEByName(s).get(0).getSiteId();
-                        } else {
-                            return 0;
-                        }
-                    }).toList();
+                .map(Site::getName)
+                .map(s -> {
+                    if (siteRepository.existsByName(s)) {
+                        return siteRepository.findSiteEByName(s).get(0).getSiteId();
+                    } else {
+                        return 0;
+                    }
+                }).toList();
         } else {
             Optional<Site> siteFromConfig = sites.getSites().stream()
-                    .filter(site1 -> site1.getUrl().equals(site)).findFirst();
+                .filter(site1 -> site1.getUrl().equals(site)).findFirst();
             if (siteFromConfig.isPresent()) {
                 SiteE siteE = siteRepository.findByName(siteFromConfig.get().getName()).orElse(null);
                 if (siteE != null) {
@@ -269,11 +274,14 @@ public class SearchServiceImpl implements SearchService {
      *
      * @param lemmaList список лемм для поиска в IndexE и Page
      */
-    private void formationForOneSite(List<Lemma> lemmaList) {
+    private double[][] formationForOneSite(List<Lemma> lemmaList) {
+        double[][] relevance;
+        double maxRelevance = 0;
         // 4. По первой, самой редкой лемме из списка, находить все страницы, на которых она встречается
         List<IndexE> indexList = new ArrayList<>(Objects
-                .requireNonNull(indexRepository.findByLemmaId(lemmaList.get(0).getLemmaId())
-                        .orElse(null)).stream().skip(offset).limit(limit).toList());
+            .requireNonNull(indexRepository.findByLemmaId(lemmaList.get(0).getLemmaId())
+                .orElse(null)).stream().skip(offset).limit(limit).toList());
+
         List<Page> pageList = new ArrayList<>();
         for (IndexE indexE : indexList) {
             Page page = pageRepository.findByPageId(indexE.getPageId());
@@ -313,7 +321,7 @@ public class SearchServiceImpl implements SearchService {
             List<IndexE> indexList2 = new ArrayList<>(Objects.requireNonNull(indexRepository.findByLemmaId(lemmaId).orElse(null)));
 
             if (!pageList.removeIf(page -> indexList2.stream()
-                    .noneMatch(indexE -> indexE.getPageId() == page.getPageId()))) {
+                .noneMatch(indexE -> indexE.getPageId() == page.getPageId()))) {
                 // удаляем лишние индексы
                 indexList2.removeIf(indexE -> pageList.stream().noneMatch(page -> page.getPageId() == indexE.getPageId()));
                 for (int j = 0; j < indexList2.size(); j++) {
@@ -322,18 +330,19 @@ public class SearchServiceImpl implements SearchService {
             }
             i++;
         }
-        setAbsoluteRelevance(pageList, lemmaList);
-        setRelativeRelevance(pageList, lemmaList);
+        setAbsoluteRelevance(pageList, lemmaList, relevance, maxRelevance);
+        setRelativeRelevance(pageList, lemmaList, relevance, maxRelevance);
+        return relevance;
     }
 
-    private void setRelativeRelevance(List<Page> pageList, List<Lemma> lemmaList) {
+    private void setRelativeRelevance(List<Page> pageList, List<Lemma> lemmaList, double[][] relevance, double maxRelevance) {
         for (int j = 0; j < pageList.size(); j++) {
             int ind = lemmaList.size() + 2;
             relevance[j][ind] = relevance[j][ind - 1] / maxRelevance;
         }
     }
 
-    private void setAbsoluteRelevance(List<Page> pageList, List<Lemma> lemmaList) {
+    private void setAbsoluteRelevance(List<Page> pageList, List<Lemma> lemmaList, double[][] relevance, double maxRelevance) {
         maxRelevance = 0;
         for (int j = 0; j < pageList.size(); j++) {
             for (int k = 0; k < lemmaList.size() + 3; k++) {
@@ -435,7 +444,7 @@ public class SearchServiceImpl implements SearchService {
 
     private boolean isFoundIndexNear(int prevPosition, int cur) {
         return prevPosition == cur || prevPosition == cur - 1 || prevPosition == cur - 2 || prevPosition == cur - 3 ||
-                prevPosition == cur + 1 || prevPosition == cur + 2 || prevPosition == cur + 3;
+            prevPosition == cur + 1 || prevPosition == cur + 2 || prevPosition == cur + 3;
     }
 
     /**
@@ -447,29 +456,29 @@ public class SearchServiceImpl implements SearchService {
      */
     private List<Integer> getListIndexByLemmaFromContent(String[] arraySplitContent, @NonNull String wordLemma) {
         return IntStream.range(0, arraySplitContent.length)
-                .mapToObj(index -> {
-                    String w = arraySplitContent[index];
-                    if (w.endsWith("'s")) {
-                        w = w.replace("'s", "");
-                    }
-                    if (w.endsWith(".com")) {
-                        w = w.replace(".com", "");
-                    }
-                    List<String> lemmaListFromQuery = Objects.requireNonNull(lemmaFinder).collectLemmas(w)
-                            .keySet()
-                            .stream()
-                            .toList();
-                    String result = "";
-                    if (!lemmaListFromQuery.isEmpty()) {
-                        String regex = "[^A-Za-zА-Яа-я0-9]";
-                        result = lemmaListFromQuery.get(0).replaceAll(regex, " ").trim().toLowerCase(Locale.ROOT);
-                    }
-                    return String.format("%d -> %s", index, result);
-                })
-                .filter(s -> s.toLowerCase(Locale.ROOT).endsWith(wordLemma.toLowerCase(Locale.ROOT)))
-                .map(s -> s.substring(0, s.indexOf("->")).trim())
-                .parallel()
-                .mapToInt(Integer::parseInt).boxed().toList();
+            .mapToObj(index -> {
+                String w = arraySplitContent[index];
+                if (w.endsWith("'s")) {
+                    w = w.replace("'s", "");
+                }
+                if (w.endsWith(".com")) {
+                    w = w.replace(".com", "");
+                }
+                List<String> lemmaListFromQuery = Objects.requireNonNull(lemmaFinder).collectLemmas(w)
+                    .keySet()
+                    .stream()
+                    .toList();
+                String result = "";
+                if (!lemmaListFromQuery.isEmpty()) {
+                    String regex = "[^A-Za-zА-Яа-я0-9]";
+                    result = lemmaListFromQuery.get(0).replaceAll(regex, " ").trim().toLowerCase(Locale.ROOT);
+                }
+                return String.format("%d -> %s", index, result);
+            })
+            .filter(s -> s.toLowerCase(Locale.ROOT).endsWith(wordLemma.toLowerCase(Locale.ROOT)))
+            .map(s -> s.substring(0, s.indexOf("->")).trim())
+            .parallel()
+            .mapToInt(Integer::parseInt).boxed().toList();
     }
 
     /**

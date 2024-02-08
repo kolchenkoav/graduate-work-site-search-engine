@@ -8,9 +8,11 @@ import java.io.IOException;
 import java.util.*;
 
 public class LemmaFinder {
+
     private final LuceneMorphology morphologyRus;
     private final LuceneMorphology morphologyEng;
-    private static final String[] particlesNames = new String[]{"МЕЖД", "ПРЕДЛ", "СОЮЗ", "CONJ", "INT", "PREP", "ARTICLE", "PART"};
+    private static final String[] particlesNames = new String[]{"МЕЖД", "ПРЕДЛ", "СОЮЗ", "CONJ",
+        "INT", "PREP", "ARTICLE", "PART"};
 
     public static LemmaFinder getInstance() {
         try {
@@ -22,16 +24,15 @@ public class LemmaFinder {
         return null;
     }
 
-    private LemmaFinder(LuceneMorphology luceneMorphologyRus, LuceneMorphology luceneMorphologyEng) {
+    private LemmaFinder(LuceneMorphology luceneMorphologyRus,
+        LuceneMorphology luceneMorphologyEng) {
         this.morphologyRus = luceneMorphologyRus;
         this.morphologyEng = luceneMorphologyEng;
     }
 
-
     private LemmaFinder() {
         throw new IllegalArgumentException("Disallow construct");
     }
-
 
     /**
      * Метод разделяет текст на слова, находит все леммы и считает их количество.
@@ -45,7 +46,9 @@ public class LemmaFinder {
         HashMap<String, Integer> lemmas = new HashMap<>();
         for (String word : words) {
             String normalWord = getNormalWord(word);
-            if (normalWord == null) continue;
+            if (normalWord == null) {
+                continue;
+            }
             lemmas.put(normalWord, lemmas.getOrDefault(normalWord, 0) + 1);
         }
         return lemmas;
@@ -57,8 +60,11 @@ public class LemmaFinder {
         HashMap<LemmaItem, Integer> lemmas = new HashMap<>();
         for (String word : words) {
             String normalWord = getNormalWord(word);
-            if (normalWord == null) continue;
-            lemmas.put(new LemmaItem(normalWord, word), lemmas.getOrDefault(new LemmaItem(normalWord, word), 0) + 1);
+            if (normalWord == null) {
+                continue;
+            }
+            lemmas.put(new LemmaItem(normalWord, word),
+                lemmas.getOrDefault(new LemmaItem(normalWord, word), 0) + 1);
         }
         return lemmas;
     }
@@ -77,7 +83,9 @@ public class LemmaFinder {
         for (String word : words) {
             i++;
             String normalWord = getNormalWord(word);
-            if (normalWord == null) continue;
+            if (normalWord == null) {
+                continue;
+            }
             lemmas.put(i, normalWord);
         }
         return lemmas;
@@ -95,7 +103,9 @@ public class LemmaFinder {
         List<String> lemmas = new ArrayList<>();
         for (String word : words) {
             String normalWord = getNormalWord(word);
-            if (normalWord == null) continue;
+            if (normalWord == null) {
+                continue;
+            }
             lemmas.add(normalWord);
         }
         return lemmas;
@@ -142,22 +152,22 @@ public class LemmaFinder {
         String[] split;
         if (saveOriginal) {
             split = text.toLowerCase(Locale.ROOT)
-                    .trim()
-                    .split("\\s+");
+                .trim()
+                .split("\\s+");
 
         } else {
             split = text.toLowerCase(Locale.ROOT)
-                    .replaceAll("([^а-яa-z\\s])", " ")
-                    .trim()
-                    .split("\\s+");
+                .replaceAll("([^а-яa-z\\s])", " ")
+                .trim()
+                .split("\\s+");
         }
         return split;
     }
 
     private static boolean isRussian(String word) {
         return word.chars()
-                .mapToObj(Character.UnicodeBlock::of)
-                .anyMatch(Character.UnicodeBlock.CYRILLIC::equals);
+            .mapToObj(Character.UnicodeBlock::of)
+            .anyMatch(Character.UnicodeBlock.CYRILLIC::equals);
     }
 
     private boolean hasParticleProperty(String wordBase) {

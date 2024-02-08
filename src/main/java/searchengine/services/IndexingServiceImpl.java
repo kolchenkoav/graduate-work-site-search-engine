@@ -33,6 +33,7 @@ import javax.transaction.Transactional;
 @Service
 @RequiredArgsConstructor
 public class IndexingServiceImpl implements IndexingService {
+
     private final LemmaRepository lemmaRepository;
     private final IndexRepository indexRepository;
     private final SiteParser siteParser;
@@ -72,15 +73,15 @@ public class IndexingServiceImpl implements IndexingService {
     private boolean indexing() {
 
         if (siteListFromConfig.getSites().stream()
-                .map(e -> siteRepository.countByNameAndStatus(e.getName(), Status.INDEXING))
-                .reduce(0, Integer::sum) > 0) {
+            .map(e -> siteRepository.countByNameAndStatus(e.getName(), Status.INDEXING))
+            .reduce(0, Integer::sum) > 0) {
             return false;
         }
         siteParser.clearUniqueLinks();
 
         final ThreadFactory threadFactory = new ThreadFactoryBuilder()
-                .setNameFormat("Cайт: %d")
-                .build();
+            .setNameFormat("Cайт: %d")
+            .build();
         executor = (ThreadPoolExecutor) Executors.newFixedThreadPool(1, threadFactory);
         executor.setMaximumPoolSize(Runtime.getRuntime().availableProcessors());
 
@@ -170,7 +171,7 @@ public class IndexingServiceImpl implements IndexingService {
     @Override
     public Response stopIndexing() {
         Response response;
-        if (stopping()) {
+        if (getStopIndexing()) {
             IndexingResponse responseTrue = new IndexingResponse();
             responseTrue.setResult(true);
             response = responseTrue;
@@ -188,7 +189,7 @@ public class IndexingServiceImpl implements IndexingService {
      *
      * @return true -Успешно, false -ошибка
      */
-    private boolean stopping() {
+    private boolean getStopIndexing() {
         try {
             long size = siteEList.stream().filter(e -> e.getStatus() == Status.INDEXING).count();
             if (size == 0) {
@@ -199,12 +200,12 @@ public class IndexingServiceImpl implements IndexingService {
             siteParser.forceStop();
 
             siteEList.stream()
-                    .filter(e -> e.getStatus() == Status.INDEXING)
-                    .forEach(e -> {
-                        e.setStatus(Status.FAILED);
-                        e.setStatusTime(new Timestamp(System.currentTimeMillis()));
-                        e.setLastError(Messages.INDEXING_STOPPED_BY_USER);
-                    });
+                .filter(e -> e.getStatus() == Status.INDEXING)
+                .forEach(e -> {
+                    e.setStatus(Status.FAILED);
+                    e.setStatusTime(new Timestamp(System.currentTimeMillis()));
+                    e.setLastError(Messages.INDEXING_STOPPED_BY_USER);
+                });
             siteRepository.saveAll(siteEList);
 
             log.warn(Messages.INDEXING_STOPPED_BY_USER);
@@ -231,16 +232,16 @@ public class IndexingServiceImpl implements IndexingService {
         } else {
             IndexingErrorResponse responseFalse = new IndexingErrorResponse();
             responseFalse.setResult(false);
-            responseFalse.setError(Messages.THIS_PAGE_IS_LOCATED_OUTSIDE_THE_SITES_SPECIFIED_IN_THE_CONFIGURATION_FILE);
+            responseFalse.setError(
+                Messages.THIS_PAGE_IS_LOCATED_OUTSIDE_THE_SITES_SPECIFIED_IN_THE_CONFIGURATION_FILE);
             response = responseFalse;
         }
         return response;
     }
 
     /**
-     * Индексация отдельной страницы сайта
-     * если найдена в БД то изменение (удаление индексов, лемм и страниц),
-     * иначе создание записи в таблице siteE
+     * Индексация отдельной страницы сайта если найдена в БД то изменение (удаление индексов, лемм и
+     * страниц), иначе создание записи в таблице siteE
      *
      * @return true -Успешно, false -ошибка
      */
@@ -248,13 +249,14 @@ public class IndexingServiceImpl implements IndexingService {
         SiteParser.setCancel(false);
         String domain = Utils.getProtocolAndDomain(url);
 
-        if (siteListFromConfig.getSites().stream().noneMatch(site -> site.getUrl().equals(domain))) {
+        if (siteListFromConfig.getSites().stream()
+            .noneMatch(site -> site.getUrl().equals(domain))) {
             return false;
         }
         Site site = siteListFromConfig.getSites().stream()
-                .filter(s -> s.getUrl().equals(domain))
-                .findFirst()
-                .orElse(null);
+            .filter(s -> s.getUrl().equals(domain))
+            .findFirst()
+            .orElse(null);
         if (site == null) {
             return false;
         }
@@ -319,13 +321,14 @@ public class IndexingServiceImpl implements IndexingService {
         List<IndexE> indexList = indexRepository.findByPageId(page.getPageId());
         List<Lemma> lemmaList = new ArrayList<>();
         indexList.forEach(e -> {
-                    Lemma lemma = lemmaRepository.findByLemmaId(e.getLemmaId());
-                    lemma.setFrequency(lemma.getFrequency() - 1);                   // Frequency - 1
-                    lemmaList.add(lemma);
-                }
+                Lemma lemma = lemmaRepository.findByLemmaId(e.getLemmaId());
+                lemma.setFrequency(lemma.getFrequency() - 1);                   // Frequency - 1
+                lemmaList.add(lemma);
+            }
         );
         lemmaRepository.saveAll(lemmaList);
         log.info("Lemmas by pageId: {} are removed", page.getPageId());
-        lemmaRepository.deleteBySiteIdAndFrequency(siteId, 0);                  // delete if Frequency == 0
+        lemmaRepository.deleteBySiteIdAndFrequency(siteId,
+            0);                  // delete if Frequency == 0
     }
 }
