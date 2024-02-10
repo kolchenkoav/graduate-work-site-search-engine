@@ -11,6 +11,7 @@ import searchengine.dto.statistics.StatisticsData;
 import searchengine.dto.statistics.StatisticsResponse;
 import searchengine.dto.statistics.TotalStatistics;
 import searchengine.model.SiteE;
+import searchengine.model.Status;
 import searchengine.repository.LemmaRepository;
 import searchengine.repository.PageRepository;
 import searchengine.repository.SiteRepository;
@@ -23,6 +24,7 @@ import java.util.List;
 @Service
 @Primary
 public class StatisticsServiceDBImpl implements StatisticsService {
+
     private final SiteList sites;
     private final SiteRepository siteRepository;
     private final PageRepository pageRepository;
@@ -40,7 +42,6 @@ public class StatisticsServiceDBImpl implements StatisticsService {
         List<DetailedStatisticsItem> detailed = new ArrayList<>();
         List<Site> sitesList = sites.getSites();
         for (Site site : sitesList) {
-
             SiteE siteE = siteRepository.findByName(site.getName()).orElse(null);
             if (siteE == null) {
                 continue;
@@ -48,17 +49,8 @@ public class StatisticsServiceDBImpl implements StatisticsService {
 
             int pagesCount = getPageCount(siteE);
             int lemmasCount = getLemmasCount(siteE);
-            DetailedStatisticsItem item = new DetailedStatisticsItem();
-            item.setName(site.getName());
-            item.setUrl(site.getUrl());
-            item.setPages(pagesCount);
-            item.setLemmas(lemmasCount);
-            item.setStatus(siteE.getStatus().toString());
 
-            item.setError(siteE.getLastError() == null ? "" : siteE.getLastError());
-
-            item.setStatusTime(siteE.getStatusTime().getTime());
-            detailed.add(item);
+            detailed.add(setDetailedStatisticsItem(site, siteE, pagesCount, lemmasCount));
 
             total.setPages(total.getPages() + pagesCount);
             total.setLemmas(total.getLemmas() + lemmasCount);
@@ -68,6 +60,22 @@ public class StatisticsServiceDBImpl implements StatisticsService {
         response.setStatistics(data);
         response.setResult(true);
         return response;
+    }
+
+    private DetailedStatisticsItem setDetailedStatisticsItem(Site site, SiteE siteE, int pagesCount,
+        int lemmasCount) {
+        DetailedStatisticsItem item = new DetailedStatisticsItem();
+        item.setName(site.getName());
+        item.setUrl(site.getUrl());
+        item.setPages(pagesCount);
+        item.setLemmas(lemmasCount);
+        item.setStatus(siteE.getStatus().toString());
+
+        item.setError(siteE.getLastError() == null && !siteE.getStatus().equals(Status.FAILED) ? ""
+            : siteE.getLastError());
+
+        item.setStatusTime(siteE.getStatusTime().getTime());
+        return item;
     }
 
     private int getLemmasCount(SiteE siteE) {

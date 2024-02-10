@@ -28,13 +28,17 @@ import static searchengine.parsing.sitemapping.Utils.ANSI_RESET;
 public class ParseLemma {
     private final LemmaRepository lemmaRepository;
     private final IndexRepository indexRepository;
-    private int beginPos;
-    private int endPos;
+
+    private int beginPos;   // значение задаётся в SiteParser.getLemmasForAllPages(SiteE siteE)
+    private int endPos;     // -//-
     private int currentPos;
 
     @Transactional
+
     /**
      * Сохраняет в БД леммы и индексы
+     *
+     * @param Page
      */
     public void parsing(Page page) {
 

@@ -46,6 +46,9 @@ public class ParsePageTask extends RecursiveTask<Set<String>> {
     private static ConcurrentHashMap<String, ParsePageTask> uniqueLinks = new ConcurrentHashMap<>();
 
     @Override
+    /**
+     * Возвращает список уникальных ссылок для сайта
+     */
     protected Set<String> compute() {
         Set<String> listOfUrls = new HashSet<>();
         List<ParsePageTask> tasks = new ArrayList<>();
@@ -63,7 +66,7 @@ public class ParsePageTask extends RecursiveTask<Set<String>> {
         Elements elements = doc.select("a[href~=^/?([\\w\\d/-]+)?]");
         for (Element link : elements) {
             String checkingUrl = link.attr("abs:href").replace("//www.", "//");
-            if (checkUrl(checkingUrl)) {
+            if (isValidUrl(checkingUrl)) {
                 listOfUrls.add(checkingUrl);
 
                 ParsePageTask newParsePageTask = prepareNewPage(checkingUrl);
@@ -155,7 +158,7 @@ public class ParsePageTask extends RecursiveTask<Set<String>> {
         return newParse;
     }
 
-    private boolean checkUrl(String checkingUrl) {
+    private boolean isValidUrl(String checkingUrl) {
         if (checkingUrl.startsWith(domain)) {
             if (checkingUrl.isEmpty() ||
                     checkingUrl.contains("#") ||

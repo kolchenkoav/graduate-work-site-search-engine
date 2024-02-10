@@ -24,6 +24,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 @Setter
 @RequiredArgsConstructor
 public class SiteParser {
+
     private final PageRepository pageRepository;
     private final SiteRepository siteRepository;
     private final ParseLemma parseLemma;
@@ -31,22 +32,21 @@ public class SiteParser {
     private int siteId;
     private String domain;
     private String url;
-    private ParsePageTask parsePageTask;
-
-    private static AtomicBoolean cancelled = new AtomicBoolean(false);
-
-    public static void setCancel(boolean b) {
-        cancelled.set(b);
-    }
-
-    public static boolean getCancel() {
-        return cancelled.get();
-    }
 
     public void initSiteParser(int siteId, String domain, String url) {
         this.siteId = siteId;
         this.domain = domain;
         this.url = url;
+    }
+
+    private ParsePageTask parsePageTask;
+
+    private static AtomicBoolean isCancel = new AtomicBoolean(false);
+    public static void setCancel(boolean b) {
+        isCancel.set(b);
+    }
+    public static boolean isCancel() {
+        return isCancel.get();
     }
 
     public void forceStop() {
@@ -65,14 +65,14 @@ public class SiteParser {
         parsePageTask = preparePage();
         pool.execute(parsePageTask);
 
-        while (!parsePageTask.isDone() && !getCancel()) {
+        while (!parsePageTask.isDone() && !isCancel()) {
             try {
-                Thread.sleep(10);
+                Thread.sleep(2);
             } catch (InterruptedException ignored) {
             }
         }
 
-        if (getCancel()) {
+        if (isCancel()) {
             pool.shutdownNow();
             forceStop();
             log.info("Отмена индексации... ");
@@ -88,6 +88,11 @@ public class SiteParser {
         parsePageTask = null;
     }
 
+    /**
+     * Установка значений данных для парсинга страницы
+     *
+     * @return обьект ParsePageTask
+     */
     private ParsePageTask preparePage() {
         parsePageTask = new ParsePageTask(parseLemma, pageRepository);
 
@@ -98,30 +103,38 @@ public class SiteParser {
         return parsePageTask;
     }
 
+    /**
+     * Сохраняет сайт в БД
+     */
     private void saveSite() {
         SiteE siteE = siteRepository.findById(siteId).orElse(null);
         if (siteE == null) {
             log.warn("Сайт с ID: {} не найден", siteE);
             return;
         }
-        siteE.setStatus(getCancel() ? Status.FAILED : Status.INDEXING);
+        siteE.setStatus(isCancel() ? Status.FAILED : Status.INDEXING);
         siteE.setStatusTime(Utils.setNow());
 
         getLemmasForAllPages(siteE);
 
-        siteE.setStatus(getCancel() ? Status.FAILED : Status.INDEXED);
-        siteE.setLastError(getCancel() ? Messages.INDEXING_STOPPED_BY_USER : "");
+        siteE.setStatus(isCancel() ? Status.FAILED : Status.INDEXED);
+        siteE.setLastError(isCancel() ? Messages.INDEXING_STOPPED_BY_USER : "");
         siteE.setStatusTime(Utils.setNow());
         siteRepository.save(siteE);
         log.info("===>>> site '{}' saved", siteE.getName());
     }
 
+    /**
+     * Проход по всем страницам сайта и сохранение лемм и индексов
+     *
+     * @param siteE - сущность SiteE
+     */
     public void getLemmasForAllPages(SiteE siteE) {
         List<Page> pageList = pageRepository.findBySiteIdAndCode(siteE.getSiteId(), 200);
         parseLemma.setBeginPos(pageList.get(0).getPageId());
         parseLemma.setEndPos(pageList.get(pageList.size() - 1).getPageId());
 
-        pageList.stream().takeWhile(e -> !getCancel()).forEach(this::parseSinglePage);
+        pageList.stream().takeWhile(e -> !isCancel()).forEach(this::parseSinglePage);
     }
 
     /**
@@ -132,15 +145,25 @@ public class SiteParser {
     public void parseSinglePage(Page page) {
 
         parseLemma.setCurrentPos(page.getPageId());
-        if (!getCancel()) {
+        if (!isCancel()) {
             parseLemma.parsing(page);
         }
     }
 
+    /**
+     * Сброс ссылок после выполнения работы
+     */
     public void clearUniqueLinks() {
         ParsePageTask.clearUniqueLinks();
     }
 
+    /**
+     * Сохраняет страницу в БД
+     * @param url - ссылка
+     * @param siteE - сайт
+     * @param domain - домен
+     * @return - сохранённая строаница
+     */
     public Page savePage(String url, SiteE siteE, String domain) {
         Document doc = parsePageTask.getDocumentByUrl(url);
         parsePageTask.setSiteId(siteE.getSiteId());

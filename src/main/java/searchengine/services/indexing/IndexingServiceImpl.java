@@ -52,7 +52,7 @@ public class IndexingServiceImpl implements IndexingService {
     public Response startIndexing() {
         Response response;
         SiteParser.setCancel(false);
-        if (indexing()) {
+        if (isIndexingSuccessful()) {
             IndexingResponse responseTrue = new IndexingResponse();
             responseTrue.setResult(true);
             response = responseTrue;
@@ -70,8 +70,7 @@ public class IndexingServiceImpl implements IndexingService {
      *
      * @return true -Успешно, false -ошибка
      */
-    private boolean indexing() {
-
+    private boolean isIndexingSuccessful() {
         if (siteListFromConfig.getSites().stream()
             .map(e -> siteRepository.countByNameAndStatus(e.getName(), Status.INDEXING))
             .reduce(0, Integer::sum) > 0) {
@@ -87,10 +86,10 @@ public class IndexingServiceImpl implements IndexingService {
 
         siteListFromConfig.getSites().forEach(e -> {
             boolean isCreate = !siteRepository.existsByName(e.getName());
-            if (SiteParser.getCancel()) {
+            if (SiteParser.isCancel()) {
                 executor.shutdownNow();
             } else {
-                executor.execute(() -> parsingOneSite(e.getUrl(), e.getName(), isCreate));
+                executor.execute(() -> parseOneSite(e.getUrl(), e.getName(), isCreate));
             }
         });
 
@@ -106,8 +105,8 @@ public class IndexingServiceImpl implements IndexingService {
      * @param isCreate true -новая запись, false - изменить запись
      */
     @Transactional
-    void parsingOneSite(String url, String name, boolean isCreate) {
-        if (SiteParser.getCancel()) {
+    void parseOneSite(String url, String name, boolean isCreate) {
+        if (SiteParser.isCancel()) {
             return;
         }
         SiteE siteE;
@@ -139,7 +138,7 @@ public class IndexingServiceImpl implements IndexingService {
     }
 
     /**
-     * Удаление страниц и лемм по name
+     * Удаление страниц и лемм
      *
      * @param name имя сайта
      */
@@ -171,7 +170,7 @@ public class IndexingServiceImpl implements IndexingService {
     @Override
     public Response stopIndexing() {
         Response response;
-        if (getStopIndexing()) {
+        if (isStopIndexing()) {
             IndexingResponse responseTrue = new IndexingResponse();
             responseTrue.setResult(true);
             response = responseTrue;
@@ -189,7 +188,7 @@ public class IndexingServiceImpl implements IndexingService {
      *
      * @return true -Успешно, false -ошибка
      */
-    private boolean getStopIndexing() {
+    private boolean isStopIndexing() {
         try {
             long size = siteEList.stream().filter(e -> e.getStatus() == Status.INDEXING).count();
             if (size == 0) {
@@ -225,7 +224,7 @@ public class IndexingServiceImpl implements IndexingService {
     @Override
     public Response indexPage(String url) {
         Response response;
-        if (indexingPage(url)) {
+        if (isindexPage(url)) {
             IndexingResponse responseTrue = new IndexingResponse();
             responseTrue.setResult(true);
             response = responseTrue;
@@ -245,7 +244,7 @@ public class IndexingServiceImpl implements IndexingService {
      *
      * @return true -Успешно, false -ошибка
      */
-    private boolean indexingPage(String url) {
+    private boolean isindexPage(String url) {
         SiteParser.setCancel(false);
         String domain = Utils.getProtocolAndDomain(url);
 
@@ -287,12 +286,20 @@ public class IndexingServiceImpl implements IndexingService {
         return true;
     }
 
+    /**
+     * Парсинг и сохранение лемм и индексов
+     *
+     * @param url    - url
+     * @param siteE  - сущность siteE
+     * @param domain - домен
+     * @return true если успешно
+     */
     private boolean saveLemmasAndIndicesForOnePage(String url, SiteE siteE, String domain) {
         Page page = siteParser.savePage(url, siteE, domain);
         if (page == null) {
             return false;
         }
-        siteParser.parseSinglePage(page);       // парсинг и сохранение лемм и индексов
+        siteParser.parseSinglePage(page);
         return true;
     }
 
@@ -322,13 +329,13 @@ public class IndexingServiceImpl implements IndexingService {
         List<Lemma> lemmaList = new ArrayList<>();
         indexList.forEach(e -> {
                 Lemma lemma = lemmaRepository.findByLemmaId(e.getLemmaId());
-                lemma.setFrequency(lemma.getFrequency() - 1);                   // Frequency - 1
+                lemma.setFrequency(lemma.getFrequency() - 1);          // Frequency - 1
                 lemmaList.add(lemma);
             }
         );
         lemmaRepository.saveAll(lemmaList);
         log.info("Lemmas by pageId: {} are removed", page.getPageId());
         lemmaRepository.deleteBySiteIdAndFrequency(siteId,
-            0);                  // delete if Frequency == 0
+            0);                                                     // delete if Frequency == 0
     }
 }
