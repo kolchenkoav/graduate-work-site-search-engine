@@ -14,4 +14,6 @@ public interface IndexRepository extends JpaRepository<IndexE, Long> {
     Optional<List<IndexE>> findByLemmaId(int lemmaId);
 
     List<IndexE> findByPageId(int pageId);
+
+    Optional<IndexE> findByLemmaIdAndPageId(int lemmaId, int pageId);
 }

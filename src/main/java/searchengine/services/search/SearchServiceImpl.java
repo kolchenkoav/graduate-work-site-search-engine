@@ -331,6 +331,23 @@ public class SearchServiceImpl implements SearchService {
             .requireNonNull(indexRepository.findByLemmaId(lemmaList.get(0).getLemmaId())
                 .orElse(null)).stream().skip(offset).limit(limit).toList());
 
+        // Удаление из списка эл-тов которых нет по другим леммам
+        Iterator<IndexE> iter = indexList.iterator();
+        while (iter.hasNext()) {
+            IndexE indexE = iter.next();
+            int pageId = indexE.getPageId();
+            int i = 1;
+            while (i < lemmaList.size()) {
+                IndexE indexE1 = indexRepository.findByLemmaIdAndPageId(lemmaList.get(i).getLemmaId(), pageId)
+                    .orElse(null);
+                if (indexE1 == null) {
+                    iter.remove();
+                    break;
+                }
+                i++;
+            }
+        }
+
         List<Page> pageList = new ArrayList<>();
         for (IndexE indexE : indexList) {
             Page page = pageRepository.findByPageId(indexE.getPageId());
