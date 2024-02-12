@@ -108,8 +108,7 @@ public class SearchServiceImpl implements SearchService {
         List<String> lemmaListFromQueryTemp = Objects.requireNonNull(lemmaFinder)
             .collectLemmas(query)
             .keySet()
-            .stream()
-            .toList();
+            .stream().toList();
 
         List<Lemma> lemmaListTemp = getLemmaList(siteIdListTemp, lemmaListFromQueryTemp);
         if (lemmaListTemp.isEmpty()) {
@@ -123,8 +122,7 @@ public class SearchServiceImpl implements SearchService {
 
         siteIdListTemp = lemmaListTemp.stream().map(Lemma::getSiteId).distinct().toList();
 
-        lemmaListTemp = lemmaListTemp.stream().sorted(Comparator.comparingInt(Lemma::getFrequency))
-            .toList();
+        lemmaListTemp = lemmaListTemp.stream().sorted(Comparator.comparingInt(Lemma::getFrequency)).toList();
 
         siteIdList.addAll(siteIdListTemp);
         lemmaListFromQuery.addAll(lemmaListFromQueryTemp);
@@ -203,7 +201,7 @@ public class SearchServiceImpl implements SearchService {
             Lemma lemma = iterator.next();
             int countPages = pageRepository.countBySiteId(lemma.getSiteId());
 
-            log.info("siteId: {} countPages: {} Frequency: {}", lemma.getSiteId(), countPages,
+            log.debug("siteId: {} countPages: {} Frequency: {}", lemma.getSiteId(), countPages,
                 lemma.getFrequency());
             if (lemma.getFrequency() >= countPages && countPages > limitCount) {
                 log.warn("remove lemma:{}", lemma.getLemma());
@@ -308,7 +306,9 @@ public class SearchServiceImpl implements SearchService {
                 searchResults.getSnippet(),
                 searchResults.getRelevance());
             searchDataList.add(searchData);
+            log.info("сайт {} релевантность {}", siteE.getUrl()+uri, searchData.getRelevance());
         }
+        System.out.println();
         responseTrue.setData(searchDataList);
         return responseTrue;
     }
@@ -321,12 +321,88 @@ public class SearchServiceImpl implements SearchService {
      */
     private double[][] formationForOneSite(List<Lemma> lemmaList, int offset, int limit,
         List<SearchResults> searchResultsList) {
-
         List<SearchResults> searchResultsListTemp = new ArrayList<>();
-
         double[][] relevance;
         double maxRelevance = 0;
+
         // 4. По первой, самой редкой лемме из списка, находить все страницы, на которых она встречается
+        List<IndexE> indexList = getIndexEForFirstLemma(lemmaList, offset, limit);
+
+        List<Page> pageList = getPageList(indexList);
+
+        relevance = getRelevanceArray(indexList, lemmaList, pageList, searchResultsListTemp);
+
+        maxRelevance = setAbsoluteRelevance(pageList, lemmaList, relevance);
+        setRelativeRelevance(pageList, lemmaList, relevance, maxRelevance);
+
+        searchResultsList.addAll(searchResultsListTemp);
+        return relevance;
+    }
+
+    private double[][] getRelevanceArray(List<IndexE> indexList, List<Lemma> lemmaList,
+        List<Page> pageList, List<SearchResults> searchResultsListTemp) {
+        //          lem1 lem2
+        //      0   1    2    3    4        K -кол-во лемм
+        //  0   [1] [r1] [r2] [ar] [or]
+        //  1   [2] []   []   [ar] [or]
+        //
+        //  J -кол-во страниц (индексов)
+        // Заполняем № и колонку первой леммы
+        double[][] relevance = new double[indexList.size()][lemmaList.size() + 3];
+        for (int j = 0; j < indexList.size(); j++) {
+            for (int k = 0; k < 2; k++) {    //
+                if (k == 0) {
+                    relevance[j][k] = j + 1.0;
+                    SearchResults searchResults = new SearchResults();
+                    searchResults.setNumber(j + 1);
+                    searchResults.setSiteId(lemmaList.get(0).getSiteId());
+                    searchResults.setPageId(indexList.get(j).getPageId());
+                    searchResultsListTemp.add(searchResults);
+                    continue;
+                }
+                relevance[j][k] = indexList.get(j).getRank();
+            }
+        }
+
+        // Поиск соответствия леммы из списка страниц
+        // И заполнение колонок следующих лемм
+        findingLemmaMatchFromListOfPages(lemmaList, pageList, relevance);
+
+        return relevance;
+    }
+
+    private void findingLemmaMatchFromListOfPages(List<Lemma> lemmaList, List<Page> pageList, double[][] relevance) {
+        int i = 1;
+        while (i < lemmaList.size()) {
+            int lemmaId = lemmaList.get(i).getLemmaId();
+            List<IndexE> indexList2 = new ArrayList<>(
+                Objects.requireNonNull(indexRepository.findByLemmaId(lemmaId).orElse(null)));
+
+            if (!pageList.removeIf(page -> indexList2.stream()
+                .noneMatch(indexE -> indexE.getPageId() == page.getPageId()))) {
+                // удаляем лишние индексы
+                indexList2.removeIf(indexE -> pageList.stream()
+                    .noneMatch(page -> page.getPageId() == indexE.getPageId()));
+                for (int j = 0; j < indexList2.size(); j++) {
+                    relevance[j][i + 1] = indexList2.get(j).getRank();
+                }
+            }
+            i++;
+        }
+    }
+
+    private List<Page> getPageList(List<IndexE> indexList) {
+        List<Page> pageList = new ArrayList<>();
+        for (IndexE indexE : indexList) {
+            Page page = pageRepository.findByPageId(indexE.getPageId());
+            if (page != null) {
+                pageList.add(page);
+            }
+        }
+        return pageList;
+    }
+
+    private List<IndexE> getIndexEForFirstLemma(List<Lemma> lemmaList, int offset, int limit) {
         List<IndexE> indexList = new ArrayList<>(Objects
             .requireNonNull(indexRepository.findByLemmaId(lemmaList.get(0).getLemmaId())
                 .orElse(null)).stream().skip(offset).limit(limit).toList());
@@ -347,61 +423,7 @@ public class SearchServiceImpl implements SearchService {
                 i++;
             }
         }
-
-        List<Page> pageList = new ArrayList<>();
-        for (IndexE indexE : indexList) {
-            Page page = pageRepository.findByPageId(indexE.getPageId());
-            if (page != null) {
-                pageList.add(page);
-            }
-        }
-
-        //          lem1 lem2
-        //      0   1    2    3    4        K -кол-во лемм
-        //  0   [1] [r1] [r2] [ar] [or]
-        //  1   [2] []   []   [ar] [or]
-        //
-        //  J -кол-во страниц (индексов)
-        // Заполняем № и колонку первой леммы
-        relevance = new double[indexList.size()][lemmaList.size() + 3];
-        for (int j = 0; j < indexList.size(); j++) {
-            for (int k = 0; k < 2; k++) {    //
-                if (k == 0) {
-                    relevance[j][k] = j + 1.0;
-                    SearchResults searchResults = new SearchResults();
-                    searchResults.setNumber(j + 1);
-                    searchResults.setSiteId(lemmaList.get(0).getSiteId());
-                    searchResults.setPageId(indexList.get(j).getPageId());
-                    searchResultsListTemp.add(searchResults);
-                    continue;
-                }
-                relevance[j][k] = indexList.get(j).getRank();
-            }
-        }
-
-        // Поиск соответствия леммы из списка страниц
-        // И заполнение колонок следующих лемм
-        int i = 1;
-        while (i < lemmaList.size()) {
-            int lemmaId = lemmaList.get(i).getLemmaId();
-            List<IndexE> indexList2 = new ArrayList<>(
-                Objects.requireNonNull(indexRepository.findByLemmaId(lemmaId).orElse(null)));
-
-            if (!pageList.removeIf(page -> indexList2.stream()
-                .noneMatch(indexE -> indexE.getPageId() == page.getPageId()))) {
-                // удаляем лишние индексы
-                indexList2.removeIf(indexE -> pageList.stream()
-                    .noneMatch(page -> page.getPageId() == indexE.getPageId()));
-                for (int j = 0; j < indexList2.size(); j++) {
-                    relevance[j][i + 1] = indexList2.get(j).getRank();
-                }
-            }
-            i++;
-        }
-        maxRelevance = setAbsoluteRelevance(pageList, lemmaList, relevance);
-        setRelativeRelevance(pageList, lemmaList, relevance, maxRelevance);
-        searchResultsList.addAll(searchResultsListTemp);
-        return relevance;
+        return indexList;
     }
 
     private void setRelativeRelevance(List<Page> pageList, List<Lemma> lemmaList,
@@ -464,7 +486,7 @@ public class SearchServiceImpl implements SearchService {
             log.warn("debug: snippet is ''");
         }
 
-        log.info("timeElapsed: {}", System.currentTimeMillis() - startTime);
+        log.debug("timeElapsed: {}", System.currentTimeMillis() - startTime);
         return snippet;
     }
 
