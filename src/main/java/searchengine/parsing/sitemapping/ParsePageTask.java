@@ -45,10 +45,11 @@ public class ParsePageTask extends RecursiveTask<Set<String>> {
 
     private static ConcurrentHashMap<String, ParsePageTask> uniqueLinks = new ConcurrentHashMap<>();
 
-    @Override
+
     /**
      * Возвращает список уникальных ссылок для сайта
      */
+    @Override
     protected Set<String> compute() {
         Set<String> listOfUrls = new HashSet<>();
         List<ParsePageTask> tasks = new ArrayList<>();

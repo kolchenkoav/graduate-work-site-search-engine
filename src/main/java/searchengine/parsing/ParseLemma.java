@@ -33,13 +33,10 @@ public class ParseLemma {
     private int endPos;     // -//-
     private int currentPos;
 
-    @Transactional
-
     /**
      * Сохраняет в БД леммы и индексы
-     *
-     * @param Page
      */
+    @Transactional
     public void parsing(Page page) {
 
         String content = page.getContent();
