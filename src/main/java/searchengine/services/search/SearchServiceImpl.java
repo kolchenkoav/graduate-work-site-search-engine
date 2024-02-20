@@ -48,6 +48,7 @@ public class SearchServiceImpl implements SearchService {
      */
     @Override
     public Response search(String query, String site, int offset, int limit) {
+
         List<SearchResults> searchResultsList = new ArrayList<>();
         /* 1. Вывод параметров поискового запроса */
         printInfoBySearch(query, site, offset, limit);
@@ -266,7 +267,7 @@ public class SearchServiceImpl implements SearchService {
      * Заполнение сниппетами списка SearchResults
      *
      * @param lemmaList         список лемм
-     * @param searchResultsList
+     * @param searchResultsList список
      */
     private void setSnippetForSearchResults(List<Lemma> lemmaList,
                                             List<SearchResults> searchResultsList) {

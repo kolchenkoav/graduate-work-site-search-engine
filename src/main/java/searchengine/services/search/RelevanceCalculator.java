@@ -21,6 +21,7 @@ import java.util.Objects;
 public class RelevanceCalculator {
     private final PageRepository pageRepository;
     private final IndexRepository indexRepository;
+
     /**
      * Формирует таблицу relevance Определяет релевантность
      *
@@ -33,7 +34,7 @@ public class RelevanceCalculator {
         double[][] relevance;
         double maxRelevance = 0;
 
-        // 4. По первой, самой редкой лемме из списка, находить все страницы, на которых она встречается
+        // По первой, самой редкой лемме из списка, находить все страницы, на которых она встречается
         List<IndexE> indexList = getIndexEForFirstLemma(lemmaList, offset, limit);
 
         List<Page> pageList = getPageList(indexList);

@@ -61,13 +61,14 @@ public class SiteParser {
      * Парсинг страниц
      */
     public void getLinks() {
+        long delayInMilliseconds = 2;
         pool = new ForkJoinPool(PARALLELISM);
         parsePageTask = preparePage();
         pool.execute(parsePageTask);
 
         while (!parsePageTask.isDone() && !isCancel()) {
             try {
-                Thread.sleep(2);
+                Thread.sleep(delayInMilliseconds);
             } catch (InterruptedException ignored) {
             }
         }
@@ -130,7 +131,8 @@ public class SiteParser {
      * @param siteE - сущность SiteE
      */
     public void getLemmasForAllPages(SiteE siteE) {
-        List<Page> pageList = pageRepository.findBySiteIdAndCode(siteE.getSiteId(), 200);
+        int statusCode = 200;
+        List<Page> pageList = pageRepository.findBySiteIdAndCode(siteE.getSiteId(), statusCode);
         parseLemma.setBeginPos(pageList.get(0).getPageId());
         parseLemma.setEndPos(pageList.get(pageList.size() - 1).getPageId());
 
@@ -143,7 +145,6 @@ public class SiteParser {
      * @param page - страница
      */
     public void parseSinglePage(Page page) {
-
         parseLemma.setCurrentPos(page.getPageId());
         if (!isCancel()) {
             parseLemma.parsing(page);
@@ -165,10 +166,11 @@ public class SiteParser {
      * @return - сохранённая строаница
      */
     public Page savePage(String url, SiteE siteE, String domain) {
-        Document doc = parsePageTask.getDocumentByUrl(url);
+        int statusCode = 200;
+        Document doc = parsePageTask.getDocumentByUrl(url, statusCode);
         parsePageTask.setSiteId(siteE.getSiteId());
         parsePageTask.setDomain(domain);
         parsePageTask.setUrl(url);
-        return parsePageTask.savePage(doc);
+        return parsePageTask.savePage(doc, statusCode);
     }
 }

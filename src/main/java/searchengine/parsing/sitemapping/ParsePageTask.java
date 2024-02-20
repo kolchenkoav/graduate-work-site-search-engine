@@ -36,32 +36,31 @@ public class ParsePageTask extends RecursiveTask<Set<String>> {
         this.pageRepository = pageRepository;
     }
 
-    private int siteId;
-    private String url;
-    private String domain;
-    private ParsePageTask parent;
-    private int code = 200;
-    private int countErrorPages = 0;
+    private int siteId;             // Id сайта
+    private String url;             // ссылка
+    private String domain;          // домен
+    private ParsePageTask parent;   // родитель
 
     private static ConcurrentHashMap<String, ParsePageTask> uniqueLinks = new ConcurrentHashMap<>();
-
 
     /**
      * Возвращает список уникальных ссылок для сайта
      */
     @Override
     protected Set<String> compute() {
+        Integer statusCode = 200;
+        Integer countErrorPages = 0;
+
         Set<String> listOfUrls = new HashSet<>();
         List<ParsePageTask> tasks = new ArrayList<>();
 
-        Document doc = getDocumentByUrl(url);
-
+        Document doc = getDocumentByUrl(url, statusCode);
         if (doc == null) {
             return listOfUrls;
         }
         if (uniqueLinks.containsKey(url)) {
-            savePage(doc);
-            printMessageAboutPages();
+            savePage(doc, statusCode);
+            printMessageAboutPages(statusCode, countErrorPages);
         }
 
         Elements elements = doc.select("a[href~=^/?([\\w\\d/-]+)?]");
@@ -85,9 +84,10 @@ public class ParsePageTask extends RecursiveTask<Set<String>> {
      * Получить Document по ссылке
      *
      * @param url ссылка на страницу
+     * @param statusCode код ошибки
      * @return Document
      */
-    public Document getDocumentByUrl(String url) {
+    public Document getDocumentByUrl(String url, Integer statusCode) {
         Document doc = null;
         try {
             doc = Jsoup.connect(url)
@@ -95,7 +95,7 @@ public class ParsePageTask extends RecursiveTask<Set<String>> {
                     .referrer("http://www.google.com")
                     .get();
         } catch (HttpStatusException e) {
-            code = e.getStatusCode();
+            statusCode = e.getStatusCode();
         } catch (IOException ex) {
             return null;
         }
@@ -106,8 +106,9 @@ public class ParsePageTask extends RecursiveTask<Set<String>> {
      * Сохраняет новую страницу
      *
      * @param doc документ(страница) для сохранения
+     * @param statusCode - код состояния
      */
-    public Page savePage(Document doc) {
+    public Page savePage(Document doc, Integer statusCode) {
         if (doc == null) {
             log.warn("Failed to save page");
             return null;
@@ -126,21 +127,21 @@ public class ParsePageTask extends RecursiveTask<Set<String>> {
             log.warn("Ошибка при получении заголовка страницы: {}", url);
         }
 
-        String s = url.substring(domain.length());
-        if (!s.endsWith("/")) {
-            s = s + "/";
+        String path = url.substring(domain.length());
+        if (!path.endsWith("/")) {
+            path = path + "/";
         }
-        Page page = new Page(siteId, s, code, content, title);
+        Page page = new Page(siteId, path, statusCode, content, title);
 
         pageRepository.save(page);
 
         return page;
     }
 
-    private void printMessageAboutPages() {
-        if (code != 200) {
+    private void printMessageAboutPages(Integer statusCode, Integer countErrorPages) {
+        if (statusCode != 200) {
             countErrorPages++;
-            log.warn("url: {} {}", url, code);
+            log.warn("url: {} {}", url, statusCode);
         }
         StringBuilder builder = new StringBuilder();
         builder.append("Number of pages found: ").append(ANSI_BLUE).append(uniqueLinks.size()).append(ANSI_RESET);
