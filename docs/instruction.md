@@ -11,7 +11,7 @@
     1. cd docker
     2. docker compouse up
     3. Запустите созданный образ MySQL
-* В [application.yam](application.yaml) добавте сайты для индексации
+* В [application.yaml](https://github.com/kolchenkoav/graduate-work-site-search-engine/blob/master/application.yaml) добавте сайты для индексации
 * Запустите приложение и откройте его через браузер по адресу: [http://localhost:8080/](http://localhost:8080/)
 * Перейдите в **MANAGEMENT** и нажмите кнопку **START INDEXING**
 * В консоле отражается процесс
@@ -22,7 +22,7 @@
 
 ## 2. Запуск jar файла
 * Для работы приложения необходимо запустить [MySQL](https://dev.mysql.com/downloads/installer/) (можно в [docker](https://www.docker.com/products/docker-desktop/))
-* Настройки подключения к MySQL в **[application.yaml](application.yaml)**. Там же прописываются сайты для индексации
-* Необходимо скопировать **SearchEngine-1.0-SNAPSHOT.jar** и **[application.yaml](application.yaml)** в папку
+* Настройки подключения к MySQL в **[application.yaml](https://github.com/kolchenkoav/graduate-work-site-search-engine/blob/master/application.yaml)**. Там же прописываются сайты для индексации
+* Необходимо скопировать **SearchEngine-1.0-SNAPSHOT.jar** и **[application.yaml](https://github.com/kolchenkoav/graduate-work-site-search-engine/blob/master/application.yaml)** в папку
 * В этой папке запускаем терминал (Command prompt  или  git bash) 
 * В коммандной строке набрать  *java -jar SearchEngine-1.0-SNAPSHOT.jar*
