@@ -295,7 +295,13 @@ public class IndexingServiceImpl implements IndexingService {
      * @return true если успешно
      */
     private boolean saveLemmasAndIndicesForOnePage(String url, SiteE siteE, String domain) {
-        Page page = siteParser.savePage(url, siteE, domain);
+        Page page = null;
+        try {
+            page = siteParser.savePage(url, siteE, domain);
+        } catch (Exception e) {
+            log.warn("siteParser.savePage - error");
+        }
+
         if (page == null) {
             return false;
         }

@@ -1,15 +1,15 @@
 indexing-settings:
   sites:
-#    - url: https://quotes.toscrape.com
-#      name: Quotes to Scrape
-#    - url: https://starper55plys.ru
-#      name: Блог Старого Перца
+    - url: https://quotes.toscrape.com
+      name: Quotes to Scrape
+    - url: https://starper55plys.ru
+      name: Блог Старого Перца
     - url: https://konstruktorysajtov.com
       name: Лучшие платформы для сайтов
-#    - url: https://jsoup.org
-#      name: jsoup Java HTML parser
-#    - url: https://lenta.ru
-#      name: Lenta.ru
+    - url: https://jsoup.org
+      name: jsoup Java HTML parser
+    - url: https://lenta.ru
+      name: Lenta.ru
 #    - url: https://www.business-gazeta.ru
 #      name: business gazeta
 #    - url: https://a24.press

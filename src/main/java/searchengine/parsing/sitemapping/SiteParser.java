@@ -167,6 +167,7 @@ public class SiteParser {
      */
     public Page savePage(String url, SiteE siteE, String domain) {
         int statusCode = 200;
+        preparePage();
         Document doc = parsePageTask.getDocumentByUrl(url, statusCode);
         parsePageTask.setSiteId(siteE.getSiteId());
         parsePageTask.setDomain(domain);
